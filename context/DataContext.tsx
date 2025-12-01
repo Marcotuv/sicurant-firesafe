@@ -407,7 +407,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   return (
     <DataContext.Provider value={{
       clients, articles, assets, services, anomalies, interventions, notifications, sessions,
-      remoteUrl, setRemoteUrl, supabaseConfig, setSupabaseConfig, syncData,
+      remoteUrl, setRemoteUrl, supabaseConfig, setSupabaseConfig, syncData, downloadCloudData,
       getOpenSession, createSession, updateSession, saveInterventionToSession, closeSession,
       addIntervention, addInterventionsBulk, addClient, updateClient, addClientsBulk, deleteClient,
       addArticle, addArticlesBulk, deleteArticle, addAsset, addAssetsBulk, deleteAsset,
