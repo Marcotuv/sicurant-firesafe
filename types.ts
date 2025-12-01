@@ -54,6 +54,7 @@ export interface Intervention {
 }
 
 export interface WorkSession {
+  id?: number; 
   clientId: number;
   startTimestamp: string;
   status: 'OPEN' | 'CLOSED';
@@ -79,6 +80,11 @@ export interface Notification {
   read: boolean;
 }
 
+export interface SupabaseConfig {
+  url: string;
+  key: string;
+}
+
 export interface DataContextType {
   clients: Client[];
   articles: Article[];
@@ -89,7 +95,17 @@ export interface DataContextType {
   notifications: Notification[];
   sessions: WorkSession[]; // Stato Sessioni
 
-  // Session Management (Nuovo)
+  // Remote Config
+  remoteUrl: string; // Deprecato, mantenuto per compatibilità
+  supabaseConfig: SupabaseConfig;
+  setSupabaseConfig: (config: SupabaseConfig) => void;
+  setRemoteUrl: (url: string) => void;
+  
+  // Sync
+  syncData: () => Promise<{ success: boolean; message: string }>;
+  downloadCloudData: () => Promise<void>; // NUOVO
+
+  // Session Management
   getOpenSession: (clientId: number) => WorkSession | undefined;
   createSession: (clientId: number) => WorkSession;
   updateSession: (clientId: number, data: Partial<WorkSession>) => void;
@@ -125,6 +141,10 @@ export interface DataContextType {
   markNotificationAsRead: (id: string) => void;
   clearAllNotifications: () => void;
   addNotification: (notification: Omit<Notification, 'id' | 'read' | 'timestamp'>) => void;
+
+  // Data Management (Locale)
+  exportData: () => void;
+  importData: (jsonData: string) => boolean;
 }
 
 export interface User {
