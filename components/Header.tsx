@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Moon, Sun, LogOut, Bell, Trash2, Info, AlertTriangle, CheckCircle, XCircle, Menu, X, LayoutDashboard, MessageSquare, Wrench, ClipboardList, Database, FileText, Calendar, User as UserIcon, Settings } from 'lucide-react';
@@ -197,25 +196,29 @@ const Header: React.FC<HeaderProps> = ({ darkMode, toggleDarkMode }) => {
 
       {/* Mobile Navigation Menu Overlay */}
       {isMobileMenuOpen && (
-          <div className="absolute top-16 left-0 w-full bg-white dark:bg-slate-900 shadow-xl border-b border-gray-200 dark:border-slate-700 md:hidden animate-fade-in z-40">
+          <div className="absolute top-16 left-0 w-full bg-white dark:bg-slate-900 shadow-xl border-b border-gray-200 dark:border-slate-700 md:hidden animate-fade-in z-40 max-h-[calc(100vh-4rem)] overflow-y-auto">
               <nav className="flex flex-col p-4 space-y-2">
                   <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Menu Navigazione</div>
                   {navItems.map((item) => (
                       <button 
                         key={item.to} 
                         onClick={() => handleMobileNav(item.to)}
-                        className="flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
+                        className="flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors w-full text-left"
                       >
                           <item.icon size={20} className="text-primary-600 dark:text-blue-400" />
                           <span className="font-medium">{item.label}</span>
                       </button>
                   ))}
                   <hr className="my-2 border-gray-100 dark:border-slate-700"/>
-                  <button onClick={() => handleMobileNav('/settings')} className="flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800">
-                      <Settings size={20} /> <span>Impostazioni</span>
+                  <button 
+                    onClick={() => handleMobileNav('/settings')} 
+                    className="flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors w-full text-left"
+                  >
+                      <Settings size={20} className="text-primary-600 dark:text-blue-400" /> 
+                      <span className="font-medium">Impostazioni</span>
                   </button>
-                  <button className="flex items-center space-x-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 w-full text-left">
-                      <LogOut size={20} /> <span>Esci</span>
+                  <button className="flex items-center space-x-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 w-full text-left transition-colors">
+                      <LogOut size={20} /> <span className="font-medium">Esci</span>
                   </button>
               </nav>
           </div>
