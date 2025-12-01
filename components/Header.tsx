@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Moon, Sun, LogOut, Bell, Trash2, Info, AlertTriangle, CheckCircle, XCircle, Menu, X, LayoutDashboard, MessageSquare, Wrench, ClipboardList, Database, FileText, Calendar, User as UserIcon, Settings } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Moon, Sun, LogOut, Bell, Trash2, Info, AlertTriangle, CheckCircle, XCircle, Menu, X, LayoutDashboard, MessageSquare, Wrench, ClipboardList, Database, Settings } from 'lucide-react';
 import { MOCK_USER } from '../data';
 import { useData } from '../context/DataContext';
 
@@ -66,10 +66,11 @@ const Header: React.FC<HeaderProps> = ({ darkMode, toggleDarkMode }) => {
       <div className="flex items-center space-x-3">
         {/* Mobile Menu Button */}
         <button 
-            className="md:hidden p-1 hover:bg-white/10 rounded focus:outline-none"
+            className="md:hidden p-1 hover:bg-white/10 rounded focus:outline-none transition-colors"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            aria-label="Toggle menu"
         >
-            <Menu size={24} />
+            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
 
         {/* Logo Sicur. Ant (SVG Inline) */}
