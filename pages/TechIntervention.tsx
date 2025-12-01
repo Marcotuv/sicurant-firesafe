@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
-import { CheckCircle, AlertTriangle, FileText, Wrench, Save, X, MapPin, Hash, Search, PenTool, ClipboardCheck, Eraser, FileCheck, ArrowLeft, Download, RefreshCw, Filter, Tag, Layers, Play, ChevronDown, User } from 'lucide-react';
+import { CheckCircle, AlertTriangle, FileText, Wrench, Save, X, MapPin, Hash, Search, PenTool, ClipboardCheck, Eraser, FileCheck, ArrowLeft, Download, RefreshCw, Filter, Tag, Layers, Play, ChevronDown, User, UploadCloud } from 'lucide-react';
 import { Asset, Intervention, Client } from '../types';
 
 // Simple Signature Pad Component
@@ -115,7 +115,7 @@ const TechIntervention: React.FC = () => {
   const { 
       clients, assets, services, anomalies, 
       createSession, getOpenSession, updateSession, saveInterventionToSession, closeSession, sessions,
-      interventions, addNotification 
+      interventions, addNotification, exportData, syncData, downloadCloudData, remoteUrl
   } = useData();
   const navigate = useNavigate();
   
@@ -124,6 +124,8 @@ const TechIntervention: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSessionComplete, setIsSessionComplete] = useState(false);
   const [isDraftSaved, setIsDraftSaved] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   
   // Client Search State (Autocomplete)
   const [clientSearchTerm, setClientSearchTerm] = useState("");
@@ -245,7 +247,7 @@ const TechIntervention: React.FC = () => {
     setIsModalOpen(false);
   };
   
-  const handlePartialSave = () => {
+  const handlePartialSave = async () => {
       if (!selectedClientId) return;
 
       // Sync local metadata to session
@@ -257,9 +259,20 @@ const TechIntervention: React.FC = () => {
           clientSignatureImage: clientSigImage
       });
 
+      if (remoteUrl) {
+          setIsSyncing(true);
+          await syncData();
+          setIsSyncing(false);
+      } else {
+          // Fallback manual download
+          setTimeout(() => {
+            exportData();
+          }, 500);
+      }
+
       addNotification({
           title: "Sessione Salvata",
-          message: "Note e progressi salvati. Puoi chiudere e riprendere dopo.",
+          message: remoteUrl ? "Backup sincronizzato con il server." : "Il file di backup è stato scaricato.",
           type: "success"
       });
       
@@ -267,12 +280,14 @@ const TechIntervention: React.FC = () => {
       window.scrollTo(0, 0);
   };
 
-  const handleGlobalSave = () => {
+  const handleGlobalSave = async () => {
       if (sessionInterventionIds.length === 0) {
           alert("Nessun presidio lavorato. Esegui almeno un intervento prima di concludere.");
           return;
       }
       
+      setIsSyncing(true);
+
       // Update metadata one last time
       updateSession(Number(selectedClientId), {
           generalNotes,
@@ -282,12 +297,33 @@ const TechIntervention: React.FC = () => {
           clientSignatureImage: clientSigImage
       });
       
-      // Commit
+      // Commit logic
       closeSession(Number(selectedClientId));
+
+      // Attempt Remote Sync if URL is present
+      let syncResult = { success: false };
+      if (remoteUrl) {
+          syncResult = await syncData();
+      }
+
+      // If sync failed or no URL, download file
+      if (!remoteUrl || !syncResult.success) {
+          setTimeout(() => {
+             exportData();
+          }, 500);
+      }
       
+      setIsSyncing(false);
       setIsSessionComplete(true);
       window.scrollTo(0, 0);
   };
+  
+  const handleRefreshCloud = async () => {
+      setIsDownloading(true);
+      await downloadCloudData();
+      setIsDownloading(false);
+      addNotification({ title: "Dati Aggiornati", message: "Ultime modifiche scaricate dal cloud.", type: "success" });
+  }
 
   const generatePDFReport = () => {
       const element = document.getElementById('session-report-container');
@@ -340,12 +376,20 @@ const TechIntervention: React.FC = () => {
       return matchesSearch && matchesCategory && matchesLocation;
   });
 
-  // Calculate Progress based on Session Data
+  // Calculate Progress
   const session = selectedClientId ? getOpenSession(Number(selectedClientId)) : undefined;
-  // If session exists, use its draft list to determine what is done
-  const completedAssetIds = session ? session.draftInterventions.map(i => i.assetId) : [];
+  
+  // Logic Fix: Consider done if in current local session OR in global interventions list for this client
+  const draftAssetIds = session ? session.draftInterventions.map(i => i.assetId) : [];
+  
+  // Get globally completed interventions (e.g. from other devices)
+  const globalCompletedAssetIds = selectedClientId 
+    ? interventions.filter(i => i.clientId === Number(selectedClientId)).map(i => i.assetId)
+    : [];
 
-  const completedInView = filteredAssets.filter(a => completedAssetIds.includes(a.id)).length;
+  const allCompletedIds = [...new Set([...draftAssetIds, ...globalCompletedAssetIds])];
+
+  const completedInView = filteredAssets.filter(a => allCompletedIds.includes(a.id)).length;
   const progressPercentage = filteredAssets.length > 0 ? Math.round((completedInView / filteredAssets.length) * 100) : 0;
 
   // For Report
@@ -379,9 +423,13 @@ const TechIntervention: React.FC = () => {
                 <div className="mx-auto bg-orange-100 dark:bg-orange-800 w-20 h-20 rounded-full flex items-center justify-center mb-4">
                     <Save className="text-orange-600 dark:text-orange-200" size={40} />
                 </div>
-                <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">Sessione Salvata</h2>
+                <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">Salvataggio Effettuato</h2>
                 <p className="text-gray-600 dark:text-gray-300 mb-8 max-w-lg mx-auto">
-                    I dati sono al sicuro nel sistema. Puoi chiudere il browser o cambiare pagina. Quando tornerai su questo cliente, ritroverai tutto come l'hai lasciato.
+                    La sessione è stata salvata.
+                    {remoteUrl 
+                        ? " Il backup è stato inviato al server centrale con successo."
+                        : " Il file di backup è stato scaricato sul dispositivo per l'invio manuale."
+                    }
                 </p>
                 <div className="flex flex-col sm:flex-row justify-center gap-4">
                     <button onClick={() => navigate('/')} className="bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-800 dark:text-gray-200 px-6 py-3 rounded-lg font-medium flex items-center justify-center transition-colors">
@@ -406,7 +454,11 @@ const TechIntervention: React.FC = () => {
                       <FileCheck className="text-emerald-500 mr-4" size={48} />
                       <div>
                           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Intervento Completato!</h2>
-                          <p className="text-gray-600 dark:text-gray-300">I dati sono stati salvati correttamente nel registro.</p>
+                          <p className="text-gray-600 dark:text-gray-300">
+                             {remoteUrl 
+                                ? "I dati sono stati inviati al server aziendale." 
+                                : "Il file di Backup è stato scaricato."}
+                          </p>
                       </div>
                   </div>
                   <div className="flex gap-3">
@@ -462,16 +514,25 @@ const TechIntervention: React.FC = () => {
   // --- WORK IN PROGRESS VIEW ---
   return (
     <div className="space-y-6">
-      <div className="border-b border-gray-200 dark:border-slate-700 pb-4 flex justify-between items-center">
+      <div className="border-b border-gray-200 dark:border-slate-700 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
             <h2 className="text-2xl font-bold text-red-600 dark:text-red-400 flex items-center"><Wrench className="mr-3" /> Gestione Intervento sul Campo</h2>
             <p className="text-gray-500 dark:text-gray-400 mt-1">Compila le firme, esegui i lavori e salva il report completo.</p>
         </div>
-        {selectedClientId && (
-            <button onClick={handleReset} className="text-sm text-gray-500 hover:text-red-500 flex items-center">
-                <X size={16} className="mr-1"/> Annulla Selezione
+        <div className="flex gap-2">
+            <button 
+                onClick={handleRefreshCloud} 
+                disabled={isDownloading}
+                className="text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded flex items-center transition-colors disabled:opacity-50"
+            >
+                <RefreshCw size={16} className={`mr-1 ${isDownloading ? 'animate-spin' : ''}`}/> {isDownloading ? 'Aggiornamento...' : 'Aggiorna Dati'}
             </button>
-        )}
+            {selectedClientId && (
+                <button onClick={handleReset} className="text-sm text-gray-500 hover:text-red-500 flex items-center px-2">
+                    <X size={16} className="mr-1"/> Annulla
+                </button>
+            )}
+        </div>
       </div>
 
       <div className="max-w-6xl mx-auto space-y-8">
@@ -616,7 +677,7 @@ const TechIntervention: React.FC = () => {
                 ) : (
                     <div className="grid grid-cols-1 gap-3 max-h-[600px] overflow-y-auto custom-scrollbar pr-2">
                         {filteredAssets.map(asset => {
-                            const isDone = completedAssetIds.includes(asset.id);
+                            const isDone = allCompletedIds.includes(asset.id);
                             return (
                                 <div key={asset.id} className={`flex flex-col md:flex-row justify-between items-center p-3 border rounded-lg shadow-sm transition-all ${isDone ? 'bg-green-50 dark:bg-green-900/20 border-l-4 border-l-green-500 border-y-green-200 border-r-green-200 dark:border-green-800' : 'bg-white dark:bg-slate-900 border-l-4 border-l-gray-300 border-y-gray-200 border-r-gray-200 dark:border-slate-700 hover:border-l-primary-500'}`}>
                                     <div className="flex-1 w-full md:w-auto mb-2 md:mb-0">
@@ -682,8 +743,22 @@ const TechIntervention: React.FC = () => {
                  <button onClick={handlePartialSave} className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 px-6 rounded-lg shadow-lg flex items-center justify-center text-lg">
                     <Save size={24} className="mr-2" /> SALVA PARZIALMENTE
                  </button>
-                 <button onClick={handleGlobalSave} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 px-8 rounded-lg shadow-lg flex items-center justify-center text-lg">
-                    <CheckCircle size={24} className="mr-2" /> CHIUDI INTERVENTO
+                 <button 
+                    onClick={handleGlobalSave} 
+                    disabled={isSyncing}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 px-8 rounded-lg shadow-lg flex items-center justify-center text-lg disabled:opacity-70 disabled:cursor-not-allowed"
+                 >
+                    {isSyncing ? (
+                         <>
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                            SINCRONIZZAZIONE...
+                         </>
+                    ) : (
+                         <>
+                            {remoteUrl ? <UploadCloud size={24} className="mr-2"/> : <CheckCircle size={24} className="mr-2" />}
+                            {remoteUrl ? "CHIUDI E SINCRONIZZA" : "CHIUDI INTERVENTO"}
+                         </>
+                    )}
                  </button>
              </div>
              </>
