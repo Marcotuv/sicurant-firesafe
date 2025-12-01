@@ -6,19 +6,18 @@ const Settings: React.FC = () => {
   const { exportData, importData, remoteUrl, setRemoteUrl, supabaseConfig, setSupabaseConfig, syncData } = useData();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Supabase State initialization (will be updated by useEffect)
-  const [sbUrl, setSbUrl] = useState(supabaseConfig.url || '');
-  const [sbKey, setSbKey] = useState(supabaseConfig.key || '');
+  // Supabase State initialization
+  const [sbUrl, setSbUrl] = useState(supabaseConfig?.url || '');
+  const [sbKey, setSbKey] = useState(supabaseConfig?.key || '');
   const [urlInput, setUrlInput] = useState(remoteUrl || '');
 
   const [isSaved, setIsSaved] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{success: boolean; message: string} | null>(null);
 
-  // Sync local state with context when context loads (fixes refresh issue)
   useEffect(() => {
-    if (supabaseConfig.url) setSbUrl(supabaseConfig.url);
-    if (supabaseConfig.key) setSbKey(supabaseConfig.key);
+    if (supabaseConfig?.url) setSbUrl(supabaseConfig.url);
+    if (supabaseConfig?.key) setSbKey(supabaseConfig.key);
     if (remoteUrl) setUrlInput(remoteUrl);
   }, [supabaseConfig, remoteUrl]);
 
@@ -41,7 +40,11 @@ const Settings: React.FC = () => {
       reader.onload = (event) => {
           const text = event.target?.result as string;
           if (!text) return;
-          importData(text);
+          const success = importData(text);
+          if (success) {
+            setSyncResult({ success: true, message: "Importazione completata." });
+            setTimeout(() => setSyncResult(null), 3000);
+          }
           if (fileInputRef.current) fileInputRef.current.value = '';
       };
       reader.readAsText(file);
@@ -49,15 +52,13 @@ const Settings: React.FC = () => {
 
   const handleManualSync = async () => {
       setIsSyncing(true);
-      setSyncResult(null); // Reset stato precedente
+      setSyncResult(null);
       
-      // Esegui sync e cattura il risultato
       const result = await syncData();
       
       setSyncResult(result);
       setIsSyncing(false);
 
-      // Nascondi il messaggio dopo 5 secondi
       setTimeout(() => setSyncResult(null), 5000);
   };
 
