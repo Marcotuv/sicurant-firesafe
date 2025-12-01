@@ -7,6 +7,7 @@ import TechIntervention from './pages/TechIntervention';
 import InterventionLog from './pages/InterventionLog';
 import Anagraphics from './pages/Anagraphics';
 import Chat from './pages/Chat';
+import Settings from './pages/Settings'; 
 import { DataProvider } from './context/DataContext';
 
 const App: React.FC = () => {
@@ -44,7 +45,7 @@ const App: React.FC = () => {
           <div className="flex-1 flex flex-col overflow-hidden">
             <Header darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
             
-            <main className="flex-1 overflow-x-hidden overflow-y-auto p-6 scroll-smooth">
+            <main className="flex-1 overflow-x-hidden overflow-y-auto sm:p-6 p-4 scroll-smooth">
               <div className="container mx-auto max-w-7xl pb-10">
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
@@ -52,6 +53,7 @@ const App: React.FC = () => {
                   <Route path="/interventions" element={<InterventionLog />} />
                   <Route path="/anagraphics" element={<Anagraphics />} />
                   <Route path="/messages" element={<Chat />} />
+                  <Route path="/settings" element={<Settings />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </div>
