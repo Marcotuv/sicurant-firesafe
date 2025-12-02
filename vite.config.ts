@@ -1,3 +1,4 @@
+
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -8,8 +9,8 @@ export default defineConfig({
     sourcemap: false,
     emptyOutDir: true,
     rollupOptions: {
-      // Istruisce Vite a non includere queste librerie nel bundle finale.
-      // Il browser le caricherà tramite la <script type="importmap"> definita in index.html.
+      // Escludiamo dal bundle le librerie presenti nell'importmap (index.html)
+      // Questo previene l'errore "failed to resolve" durante la build
       external: [
         'react',
         'react-dom',
