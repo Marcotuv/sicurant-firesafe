@@ -70,7 +70,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       localStorage.setItem('supabase_config', JSON.stringify(config));
   }
 
-  // Helper per inizializzare Supabase on-the-fly
+  // --- HELPER SUPABASE INTERNO ---
+  // Definito internamente per evitare problemi di importazione file
   const getSupabaseClient = (url: string, key: string) => {
     if (!url || !key) return null;
     try {
@@ -137,7 +138,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [supabaseConfig]);
 
   // --- AUTO-SYNC ON LOAD ---
-  // Scarica i dati automaticamente quando viene caricata una configurazione valida
   useEffect(() => {
       if (isInitialized && supabaseConfig.url && supabaseConfig.key) {
           downloadCloudData();
@@ -154,7 +154,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
           try {
               // --- A. UPLOAD (PUSH) ---
-              // Carichiamo i dati locali nel Cloud (Upsert)
               
               if (interventions.length > 0) {
                   const { error } = await supabase
