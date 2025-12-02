@@ -5,7 +5,7 @@ import {
 import { 
   INITIAL_CLIENTS, INITIAL_ASSETS, INITIAL_ARTICLES, INITIAL_INTERVENTIONS, INITIAL_NOTIFICATIONS, SERVICES_LIST, ANOMALIES_LIST 
 } from '../data';
-import { getSupabaseClient } from '../lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
@@ -69,6 +69,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setSupabaseConfigState(config);
       localStorage.setItem('supabase_config', JSON.stringify(config));
   }
+
+  // Helper per inizializzare Supabase on-the-fly
+  const getSupabaseClient = (url: string, key: string) => {
+    if (!url || !key) return null;
+    try {
+      return createClient(url, key);
+    } catch (e) {
+      console.error("Errore init Supabase:", e);
+      return null;
+    }
+  };
 
   // --- DOWNLOAD CLOUD DATA (PULL ONLY) ---
   const downloadCloudData = useCallback(async () => {
