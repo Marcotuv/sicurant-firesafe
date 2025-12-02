@@ -70,8 +70,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       localStorage.setItem('supabase_config', JSON.stringify(config));
   }
 
-  // --- HELPER SUPABASE INTERNO ---
-  // Definito internamente per evitare problemi di importazione file
+  // --- HELPER SUPABASE INTERNO (Fix per Vercel) ---
   const getSupabaseClient = (url: string, key: string) => {
     if (!url || !key) return null;
     try {
@@ -85,7 +84,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // --- DOWNLOAD CLOUD DATA (PULL ONLY) ---
   const downloadCloudData = useCallback(async () => {
       if (!supabaseConfig.url || !supabaseConfig.key) return;
-      const supabase = getSupabaseClient(supabaseConfig.url, supabaseConfig.key);
+      // Uso la funzione interna invece dell'import mancante
+      const supabase = createClient(supabaseConfig.url, supabaseConfig.key);
       if (!supabase) return;
 
       console.log("Tentativo download dati Cloud...");
