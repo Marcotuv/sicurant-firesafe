@@ -54,7 +54,7 @@ export interface Intervention {
 }
 
 export interface WorkSession {
-  id?: number; 
+  id: string; // ID univoco per sync DB
   clientId: number;
   startTimestamp: string;
   status: 'OPEN' | 'CLOSED';
