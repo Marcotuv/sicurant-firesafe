@@ -6,11 +6,11 @@ export interface Client {
   referente: string;
   telefono: string;
   email: string;
-  commessa?: string;    // Colonna B
-  idCommessa?: string;  // Colonna C
-  struttura?: string;   // Colonna E
-  idStruttura?: string; // Colonna F
-  note?: string;        // Colonna L (Nuovo)
+  commessa?: string;    
+  idCommessa?: string;  
+  struttura?: string;   
+  idStruttura?: string; 
+  note?: string;        
 }
 
 // Articolo di Listino / Catalogo (Generico)
@@ -25,7 +25,7 @@ export interface Article {
 export interface Asset {
   id: string; // Codice interno / ID Sistema
   clientId: number; // Associazione Obbligatoria al Cliente
-  tipo: string; // Es. Estintore 6kg (spesso copiato da Article.descrizione)
+  tipo: string; // Es. Estintore 6kg
   matricola?: string; // Seriale univoco
   ubicazione?: string; // Es. Piano Terra, Locale Caldaia
   scadenza: string;
@@ -45,7 +45,7 @@ export interface Intervention {
   anomalies: string[];
   notes: string; // Note specifiche del singolo asset
   
-  // Campi Sessione (Step 3)
+  // Campi Sessione (Dati comuni per il report)
   generalNotes?: string;
   technicianSignature?: string; // Nome Leggibile
   technicianSignatureImage?: string; // Firma Grafica (Base64)
@@ -59,14 +59,14 @@ export interface WorkSession {
   startTimestamp: string;
   status: 'OPEN' | 'CLOSED';
   
-  // Dati di bozza (Step 3)
+  // Dati di bozza della sessione corrente
   generalNotes: string;
   technicianSignature: string;
   technicianSignatureImage: string;
   clientSignature: string;
   clientSignatureImage: string;
   
-  // Lista interventi "in bozza"
+  // Lista interventi "in bozza" non ancora sincronizzati nel registro globale
   draftInterventions: Intervention[];
   interventionIds: string[]; // Solo ID per tracking rapido
 }
@@ -96,14 +96,14 @@ export interface DataContextType {
   sessions: WorkSession[]; // Stato Sessioni
 
   // Remote Config
-  remoteUrl: string; // Deprecato, mantenuto per compatibilità
+  remoteUrl: string; 
   supabaseConfig: SupabaseConfig;
   setSupabaseConfig: (config: SupabaseConfig) => void;
   setRemoteUrl: (url: string) => void;
   
   // Sync
   syncData: () => Promise<{ success: boolean; message: string }>;
-  downloadCloudData: () => Promise<void>; // NUOVO
+  downloadCloudData: () => Promise<void>;
 
   // Session Management
   getOpenSession: (clientId: number) => WorkSession | undefined;
