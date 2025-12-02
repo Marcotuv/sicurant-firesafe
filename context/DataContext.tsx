@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { 
   Client, Asset, Article, Intervention, Notification, DataContextType, WorkSession, SupabaseConfig 
@@ -30,7 +31,19 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
       // Load everything from LocalStorage if available
       const savedSessions = localStorage.getItem('work_sessions');
-      if (savedSessions) setSessions(JSON.parse(savedSessions));
+      if (savedSessions) {
+          try {
+              const parsedSessions = JSON.parse(savedSessions);
+              // Migration: Ensure all sessions have an ID (legacy support)
+              const patchedSessions = parsedSessions.map((s: any) => ({
+                  ...s,
+                  id: s.id || `SESS-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+              }));
+              setSessions(patchedSessions);
+          } catch(e) {
+              console.error("Errore parsing sessioni locali", e);
+          }
+      }
 
       const savedInterventions = localStorage.getItem('interventions');
       if (savedInterventions) setInterventions(JSON.parse(savedInterventions));
@@ -132,6 +145,29 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               });
           }
 
+          // 4. Pull Work Sessions (Sync Status 'In Corso')
+          const { data: remoteSessions } = await supabase.from('work_sessions').select('json_content');
+          if (remoteSessions) {
+              setSessions(prev => {
+                  // Merge strategy: Overwrite local with remote if ID matches (Cloud is source of truth for sync)
+                  // Add if new.
+                  const merged = [...prev];
+                  
+                  remoteSessions.forEach((r: any) => {
+                      const remoteSess = r.json_content;
+                      const idx = merged.findIndex(l => l.id === remoteSess.id);
+                      if (idx >= 0) {
+                          // Update existing session
+                          merged[idx] = remoteSess;
+                      } else {
+                          // Add new session from cloud
+                          merged.push(remoteSess);
+                      }
+                  });
+                  return merged;
+              });
+          }
+
       } catch (error) {
           console.error("Errore download automatico:", error);
       }
@@ -173,6 +209,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                  const { error } = await supabase
                     .from('assets')
                     .upsert(assets.map(a => ({ id: a.id, json_content: a })), { onConflict: 'id' });
+                 if (error) throw error;
+              }
+
+              // Push Sessions (to share 'In Progress' status)
+              if (sessions.length > 0) {
+                 const { error } = await supabase
+                    .from('work_sessions')
+                    .upsert(sessions.map(s => ({ id: s.id, json_content: s })), { onConflict: 'id' });
                  if (error) throw error;
               }
 
@@ -279,6 +323,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (existing) return existing;
 
       const newSession: WorkSession = {
+          id: `SESS-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
           clientId,
           startTimestamp: new Date().toISOString(),
           status: 'OPEN',
