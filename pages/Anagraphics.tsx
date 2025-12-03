@@ -257,23 +257,50 @@ const Anagraphics: React.FC = () => {
           if (!text) return;
           try {
               const rows = parseCSVPositional(text);
+              
+              // Get current client assets to check for duplicates
+              const currentClientAssets = assets.filter(a => a.clientId === selectedClientForInventory.id);
+              const existingSerials = new Set(currentClientAssets.map(a => a.matricola.toLowerCase().trim()));
+
               // Schema Inventario:
               // A: Tipologia, B: Matricola, C: Ubicazione, D: Scadenza, E: Categoria, F: ID
-              const assetsToAdd = rows.map(cols => ({
-                  clientId: selectedClientForInventory.id,
-                  tipo: cols[0] || 'Non specificato',
-                  matricola: cols[1] || '',
-                  ubicazione: cols[2] || '',
-                  scadenza: cols[3] || new Date().toISOString().split('T')[0],
-                  categoria: cols[4] || 'Generico',
-                  id: cols[5] || `IMP-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-                  note: ''
-              } as Asset)).filter(a => a.tipo.length > 1);
+              const assetsToAdd: Asset[] = [];
+              let duplicatesCount = 0;
+
+              rows.forEach(cols => {
+                  const type = cols[0]?.trim();
+                  const serial = cols[1]?.trim() || '';
+                  
+                  // Skip empty rows
+                  if (!type || type.length < 2) return;
+
+                  // Skip if matricola exists for this client (and is not empty)
+                  if (serial && existingSerials.has(serial.toLowerCase())) {
+                      duplicatesCount++;
+                      return;
+                  }
+
+                  assetsToAdd.push({
+                      clientId: selectedClientForInventory.id,
+                      tipo: type,
+                      matricola: serial,
+                      ubicazione: cols[2]?.trim() || '',
+                      scadenza: cols[3]?.trim() || new Date().toISOString().split('T')[0],
+                      categoria: cols[4]?.trim() || 'Generico',
+                      id: cols[5]?.trim() || `IMP-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+                      note: ''
+                  });
+              });
 
               if (assetsToAdd.length > 0) {
                   addAssetsBulk(assetsToAdd);
-                  alert(`${assetsToAdd.length} presidi importati correttamente per ${selectedClientForInventory.nome}.`);
+                  alert(`${assetsToAdd.length} presidi importati correttamente.\n${duplicatesCount > 0 ? `(Ignorati ${duplicatesCount} duplicati)` : ''}`);
+              } else if (duplicatesCount > 0) {
+                  alert(`Tutti i ${duplicatesCount} presidi trovati erano già presenti (duplicati di matricola).`);
+              } else {
+                  alert("Nessun dato valido trovato nel CSV.");
               }
+
           } catch (error) {
               console.error(error);
               alert("Errore durante l'importazione dell'inventario.");
