@@ -5,7 +5,7 @@ import { useData } from '../context/DataContext';
 import { CheckCircle, AlertTriangle, FileText, Wrench, Save, X, MapPin, Hash, Search, PenTool, ClipboardCheck, Eraser, FileCheck, ArrowLeft, Download, RefreshCw, Filter, Tag, Layers, Play, ChevronDown, User, UploadCloud } from 'lucide-react';
 import { Asset, Intervention, Client } from '../types';
 
-// Simple Signature Pad Component
+// Improved Signature Pad Component with High DPI Support
 const SignaturePad: React.FC<{
     onEnd: (dataUrl: string) => void;
     onClear: () => void;
@@ -17,17 +17,22 @@ const SignaturePad: React.FC<{
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
+        
+        // Handle High DPI Screens
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        const rect = canvas.getBoundingClientRect();
+        
+        canvas.width = rect.width * ratio;
+        canvas.height = rect.height * ratio;
+        
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
         
-        // Handle resizing - simple fix for blurriness
-        const rect = canvas.getBoundingClientRect();
-        canvas.width = rect.width;
-        canvas.height = rect.height;
-
+        ctx.scale(ratio, ratio);
         ctx.strokeStyle = "#000000";
         ctx.lineWidth = 2;
         ctx.lineCap = "round";
+        ctx.lineJoin = "round"; // Smoother lines
     }, []);
 
     const getPos = (event: React.MouseEvent | React.TouchEvent) => {
@@ -51,7 +56,9 @@ const SignaturePad: React.FC<{
     };
 
     const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-        e.preventDefault(); 
+        // Prevent scrolling on touch devices while drawing
+        if(e.cancelable) e.preventDefault(); 
+        
         setIsDrawing(true);
         const pos = getPos(e);
         const ctx = canvasRef.current?.getContext('2d');
@@ -60,7 +67,8 @@ const SignaturePad: React.FC<{
     };
 
     const draw = (e: React.MouseEvent | React.TouchEvent) => {
-        e.preventDefault(); 
+        if(e.cancelable) e.preventDefault();
+        
         if (!isDrawing) return;
         const pos = getPos(e);
         const ctx = canvasRef.current?.getContext('2d');
@@ -68,11 +76,14 @@ const SignaturePad: React.FC<{
         ctx?.stroke();
     };
 
-    const stopDrawing = () => {
+    const stopDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+        if(e.cancelable) e.preventDefault();
+        
         if (isDrawing) {
             setIsDrawing(false);
             if (canvasRef.current) {
-                onEnd(canvasRef.current.toDataURL());
+                // Export at generic resolution, not necessarily the high DPI one
+                onEnd(canvasRef.current.toDataURL("image/png"));
             }
         }
     };
@@ -81,7 +92,11 @@ const SignaturePad: React.FC<{
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext('2d');
         if (canvas && ctx) {
+            // Clear considering the scale
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.restore();
             onClear();
         }
     };
@@ -94,10 +109,12 @@ const SignaturePad: React.FC<{
                     <Eraser size={12} className="mr-1"/> Cancella
                 </button>
             </div>
-            <div className="border-2 border-dashed border-gray-300 dark:border-slate-600 rounded bg-white touch-none">
+            {/* touch-none is crucial for preventing page scroll on mobile */}
+            <div className="border-2 border-dashed border-gray-300 dark:border-slate-600 rounded bg-white touch-none overflow-hidden relative h-32 w-full">
                 <canvas 
                     ref={canvasRef}
-                    className="w-full h-32 block"
+                    className="w-full h-full block cursor-crosshair"
+                    style={{ touchAction: 'none' }}
                     onMouseDown={startDrawing}
                     onMouseMove={draw}
                     onMouseUp={stopDrawing}
