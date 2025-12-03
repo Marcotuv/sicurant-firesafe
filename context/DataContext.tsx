@@ -105,7 +105,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       try {
           // 1. Pull Interventions
-          const { data: remoteInterventions } = await supabase.from('interventions').select('json_content');
+          const { data: remoteInterventions, error: errInt } = await supabase.from('interventions').select('json_content');
+          if (errInt) console.error("Err download Interventions:", errInt);
           if (remoteInterventions) {
               setInterventions(prev => {
                   const existingIds = new Set(prev.map(i => i.id));
@@ -122,7 +123,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           }
 
           // 2. Pull Clients
-          const { data: remoteClients } = await supabase.from('clients').select('json_content');
+          const { data: remoteClients, error: errCli } = await supabase.from('clients').select('json_content');
+          if(errCli) console.error("Err download Clients:", errCli);
           if (remoteClients) {
               setClients(prev => {
                   const existingIds = new Set(prev.map(c => c.id));
@@ -134,7 +136,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           }
 
           // 3. Pull Assets
-          const { data: remoteAssets } = await supabase.from('assets').select('json_content');
+          const { data: remoteAssets, error: errAst } = await supabase.from('assets').select('json_content');
+          if(errAst) console.error("Err download Assets:", errAst);
           if (remoteAssets) {
               setAssets(prev => {
                   const existingIds = new Set(prev.map(a => a.id));
@@ -146,7 +149,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           }
 
           // 4. Pull Work Sessions (Sync Status 'In Corso')
-          const { data: remoteSessions } = await supabase.from('work_sessions').select('json_content');
+          const { data: remoteSessions, error: errSess } = await supabase.from('work_sessions').select('json_content');
+          if(errSess) console.error("Err download Sessions:", errSess);
           if (remoteSessions) {
               setSessions(prev => {
                   // Merge strategy: Overwrite local with remote if ID matches (Cloud is source of truth for sync)
@@ -155,7 +159,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                   
                   remoteSessions.forEach((r: any) => {
                       const remoteSess = r.json_content;
-                      const idx = merged.findIndex(l => l.id === remoteSess.id);
+                      // Safe check for ID type mismatch
+                      const idx = merged.findIndex(l => String(l.id) === String(remoteSess.id));
                       if (idx >= 0) {
                           // Update existing session
                           merged[idx] = remoteSess;
@@ -189,35 +194,55 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           if (!supabase) return { success: false, message: "Client Supabase non valido." };
 
           try {
-              // --- A. UPLOAD (PUSH) ---
+              // --- A. UPLOAD (PUSH) - GRANULAR TRY/CATCH ---
               
               if (interventions.length > 0) {
-                  const { error } = await supabase
-                      .from('interventions')
-                      .upsert(interventions.map(i => ({ id: i.id, json_content: i })), { onConflict: 'id' });
-                  if (error) throw error;
+                  try {
+                    const { error } = await supabase
+                        .from('interventions')
+                        .upsert(interventions.map(i => ({ id: i.id, json_content: i })), { onConflict: 'id' });
+                    if (error) throw new Error(`Interventions: ${error.message} - ${error.details}`);
+                  } catch(e: any) {
+                      console.error(e);
+                      throw e;
+                  }
               }
 
               if (clients.length > 0) {
-                 const { error } = await supabase
-                    .from('clients')
-                    .upsert(clients.map(c => ({ id: c.id, json_content: c })), { onConflict: 'id' });
-                 if (error) throw error;
+                 try {
+                     const { error } = await supabase
+                        .from('clients')
+                        .upsert(clients.map(c => ({ id: c.id, json_content: c })), { onConflict: 'id' });
+                     if (error) throw new Error(`Clients: ${error.message} - ${error.details}`);
+                 } catch(e: any) {
+                      console.error(e);
+                      throw e;
+                 }
               }
 
               if (assets.length > 0) {
-                 const { error } = await supabase
-                    .from('assets')
-                    .upsert(assets.map(a => ({ id: a.id, json_content: a })), { onConflict: 'id' });
-                 if (error) throw error;
+                 try {
+                     const { error } = await supabase
+                        .from('assets')
+                        .upsert(assets.map(a => ({ id: a.id, json_content: a })), { onConflict: 'id' });
+                     if (error) throw new Error(`Assets: ${error.message} - ${error.details}`);
+                 } catch(e: any) {
+                      console.error(e);
+                      throw e;
+                 }
               }
 
               // Push Sessions (to share 'In Progress' status)
               if (sessions.length > 0) {
-                 const { error } = await supabase
-                    .from('work_sessions')
-                    .upsert(sessions.map(s => ({ id: s.id, json_content: s })), { onConflict: 'id' });
-                 if (error) throw error;
+                 try {
+                     const { error } = await supabase
+                        .from('work_sessions')
+                        .upsert(sessions.map(s => ({ id: s.id, json_content: s })), { onConflict: 'id' });
+                     if (error) throw new Error(`Sessions: ${error.message} - ${error.details}`);
+                 } catch(e: any) {
+                      console.error(e);
+                      throw e;
+                 }
               }
 
               // --- B. DOWNLOAD (PULL) ---
@@ -232,7 +257,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
           } catch (error: any) {
               console.error("Supabase Sync Error:", error);
-              return { success: false, message: `Errore Supabase: ${error.message}` };
+              return { success: false, message: `Errore DB: ${error.message}` };
           }
       } 
       
