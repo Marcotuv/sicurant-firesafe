@@ -37,7 +37,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (error) {
                 console.warn('Profile fetch error:', error.message);
-                // Fallback se il profilo non esiste ancora
                 return {
                     id: userId,
                     email: email,
@@ -45,6 +44,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     role: 'technician' as const
                 };
             }
+
+            // Cache del profilo per avvio rapido
+            localStorage.setItem('user_profile', JSON.stringify(data));
             return data as UserProfile;
         } catch (err) {
             console.error(err);
@@ -58,11 +60,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             supabase.auth.getSession().then(async ({ data: { session } }) => {
                 setSession(session);
                 setUser(session?.user ?? null);
+
                 if (session?.user) {
-                    const p = await fetchProfile(session.user.id, session.user.email || '');
-                    setProfile(p);
+                    // TENTATIVO CARICAMENTO CACHE (Optimistic UI)
+                    const cached = localStorage.getItem('user_profile');
+                    if (cached) {
+                        try {
+                            const p = JSON.parse(cached);
+                            if (p.id === session.user.id) {
+                                setProfile(p);
+                                setLoading(false); // Sblocca l'app subito!
+                            }
+                        } catch (e) {
+                            console.error("Cache error", e);
+                        }
+                    }
+
+                    // Fetch aggiornato in background
+                    fetchProfile(session.user.id, session.user.email || '').then(p => {
+                        setProfile(p);
+                        setLoading(false); // Se non avevamo cache, sblocca ora
+                    });
+                } else {
+                    setLoading(false);
                 }
-                setLoading(false);
             }).catch(() => setLoading(false));
 
             // Listener per cambiamenti auth
@@ -75,6 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         setProfile(p);
                     } else {
                         setProfile(null);
+                        localStorage.removeItem('user_profile');
                     }
                     setLoading(false);
                 }
@@ -82,7 +104,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             return () => subscription.unsubscribe();
         } else {
-            // Modalità Offline / Senza Supabase (Disabilitata per produzione)
             setLoading(false);
             return () => { };
         }
@@ -107,12 +128,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(null);
         setProfile(null);
         localStorage.removeItem('mock_user_session');
+        localStorage.removeItem('user_profile');
     };
 
     const getMockUsers = () => []; // Ritorna vuoto o rimuovere definitivamente se refactorizzato ovunque
 
     return (
-        <AuthContext.Provider value={{ user, profile, session, loading, signIn, signOut, getMockUsers }}>
+        <AuthContext.Provider value={{ user, profile, session, loading, signIn, signOut }}>
             {children}
         </AuthContext.Provider>
     );
