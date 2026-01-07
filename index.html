@@ -1,0 +1,118 @@
+
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SafetyNet Intranet</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              primary: {
+                50: '#eff6ff',
+                100: '#dbeafe',
+                500: '#3b82f6',
+                600: '#2563eb',
+                700: '#1d4ed8',
+                800: '#1e40af',
+                900: '#1e3a8a',
+              }
+            }
+          }
+        }
+      }
+    </script>
+<style>
+  /* Stili per la stampa nativa (PDF vettoriale) */
+  @media print {
+    @page { margin: 10mm; size: A4; }
+    
+    /* 1. Nascondi TUTTO di default */
+    body * {
+      visibility: hidden;
+    }
+    
+    /* 2. Mostra SOLO il report e i suoi figli */
+    #report, #report * {
+      visibility: visible;
+    }
+    
+    /* 3. Posiziona il report in alto a sinistra assoluto */
+    #report {
+      position: absolute !important;
+      left: 0 !important;
+      top: 0 !important;
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      background: white !important;
+      z-index: 9999;
+    }
+
+    /* 4. Reset cruciale per permettere lo scroll/paginazione */
+    html, body, #root, main, .overflow-hidden {
+      height: auto !important;
+      min-height: auto !important;
+      overflow: visible !important;
+      position: static !important;
+      display: block !important;
+    }
+    
+    /* Nascondi elementi specifici UI dentro il report se necessario */
+    .no-print { 
+      display: none !important; 
+    }
+    
+    /* Forza background colors e bordi */
+    * { 
+      -webkit-print-color-adjust: exact !important; 
+      print-color-adjust: exact !important; 
+    }
+    
+    /* Tabelle Report */
+    table { width: 100% !important; border-collapse: collapse !important; font-size: 10pt; }
+    th, td { border: 1px solid #000 !important; padding: 4px 8px !important; text-align: left; }
+    th { background-color: #f0f0f0 !important; font-weight: bold; }
+    
+    /* Gestione Page Breaks */
+    .break-inside-avoid { page-break-inside: avoid; }
+    tr { page-break-inside: avoid; }
+  }
+  
+  /* Scrollbar Custom */
+  .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 3px; }
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #475569; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.87.1",
+    "vite": "https://aistudiocdn.com/vite@^7.2.7",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.2",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.10.1",
+    "idb-keyval": "https://aistudiocdn.com/idb-keyval@^6.2.2",
+    "react-window": "https://aistudiocdn.com/react-window@^2.2.3",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
+    "zod": "https://aistudiocdn.com/zod@^4.1.13",
+    "date-fns/": "https://aistudiocdn.com/date-fns@^4.1.0/",
+    "date-fns": "https://aistudiocdn.com/date-fns@^4.1.0",
+    "@google/genai": "https://esm.sh/@google/genai@^1.34.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

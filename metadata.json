@@ -1,0 +1,7 @@
+{
+  "name": "SICURANT FIRESAFE",
+  "description": "Intranet gestionale per la manutenzione antincendio ad alte prestazioni.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
