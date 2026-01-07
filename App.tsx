@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -12,8 +13,8 @@ import Anagraphics from './pages/Anagraphics';
 import Planning from './pages/Planning';
 import HrManagement from './pages/HrManagement';
 import Quotations from './pages/Quotations'; // NUOVO
-import Settings from './pages/Settings'; 
-import Documents from './pages/Documents'; 
+import Settings from './pages/Settings';
+import Documents from './pages/Documents';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
 
@@ -67,10 +68,10 @@ const AppContent: React.FC = () => {
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-slate-900 transition-colors duration-300 font-sans print:block print:h-auto print:bg-white print:overflow-visible">
       <Sidebar />
-      
+
       <div className="flex-1 flex flex-col overflow-hidden print:overflow-visible print:h-auto print:block">
         <Header darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
-        
+
         <main className="flex-1 overflow-x-hidden overflow-y-auto sm:p-6 p-4 scroll-smooth print:overflow-visible print:h-auto print:p-0 print:m-0 print:block">
           <div className="container mx-auto max-w-7xl pb-10 print:max-w-none print:pb-0 print:w-full">
             <Routes>
@@ -100,6 +101,7 @@ const App: React.FC = () => {
         <DataProvider>
           <HashRouter>
             <AppContent />
+            <SpeedInsights />
           </HashRouter>
         </DataProvider>
       </ClientsProvider>
