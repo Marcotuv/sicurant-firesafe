@@ -4,7 +4,7 @@ import {
   Client, Asset, Article, Intervention, Notification, DataContextType, WorkSession, SupabaseConfig, Technician, AttendanceRecord, Note, ApprovalStatus, Quotation, QuotationStatus
 } from '../types';
 import {
-  INITIAL_ASSETS, INITIAL_ARTICLES, INITIAL_INTERVENTIONS, INITIAL_NOTIFICATIONS, SERVICES_LIST, ANOMALIES_LIST, MOCK_TECHNICIANS, CHECKLIST_TEMPLATES, CATEGORY_ANOMALIES
+  INITIAL_ASSETS, INITIAL_ARTICLES, INITIAL_INTERVENTIONS, INITIAL_NOTIFICATIONS, SERVICES_LIST, ANOMALIES_LIST, CHECKLIST_TEMPLATES, CATEGORY_ANOMALIES
 } from '../data';
 import { createClient } from '@supabase/supabase-js';
 import { envConfig } from '../config/supabase';
@@ -30,7 +30,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [interventions, setInterventions] = useState<Intervention[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
   const [sessions, setSessions] = useState<WorkSession[]>([]);
-  const [technicians, setTechnicians] = useState<Technician[]>(MOCK_TECHNICIANS);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
 
@@ -380,6 +380,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             synced: true
           }));
           setAttendanceHistory(mappedAtt);
+        }
+
+        // 6. TECHNICIANS (from profiles table)
+        const { data: techData } = await client.from('profiles').select('*');
+        if (techData) {
+          const mappedTech: Technician[] = techData.map((d: any, index: number) => ({
+            id: d.id,
+            name: d.full_name || d.email.split('@')[0],
+            email: d.email,
+            color: ['#2563eb', '#16a34a', '#dc2626', '#9333ea', '#ea580c', '#0d9488', '#0891b2', '#db2777', '#4f46e5', '#65a30d', '#d97706', '#059669', '#c026d3'][index % 13]
+          }));
+          setTechnicians(mappedTech);
         }
 
         await refreshClients();

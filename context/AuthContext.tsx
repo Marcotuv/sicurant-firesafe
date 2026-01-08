@@ -36,13 +36,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 .single();
 
             if (error) {
-                console.warn('Profile fetch error:', error.message);
-                return {
-                    id: userId,
-                    email: email,
-                    full_name: email.split('@')[0],
-                    role: 'technician' as const
-                };
+                console.error('Profile fetch error:', error.message);
+                console.error('User must have a profile in the profiles table');
+                return null;
             }
 
             // Cache del profilo per avvio rapido
@@ -127,11 +123,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
         setSession(null);
         setProfile(null);
-        localStorage.removeItem('mock_user_session');
         localStorage.removeItem('user_profile');
     };
 
-    const getMockUsers = () => []; // Ritorna vuoto o rimuovere definitivamente se refactorizzato ovunque
+
 
     return (
         <AuthContext.Provider value={{ user, profile, session, loading, signIn, signOut }}>
