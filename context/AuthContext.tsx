@@ -37,9 +37,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (error) {
                 console.error('Profile fetch error:', error.message);
-                console.error('User must have a profile in the profiles table');
+                console.error('User must have a profile in the profiles table. ID:', userId);
                 return null;
             }
+
+            console.log('✅ Profile loaded:', data.email, '| Role:', data.role, '| UUID:', userId);
 
             // Cache del profilo per avvio rapido
             localStorage.setItem('user_profile', JSON.stringify(data));
