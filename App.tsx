@@ -17,6 +17,8 @@ import Settings from './pages/Settings';
 import Documents from './pages/Documents';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
+import Inventory from './pages/Inventory';
+import Scheduler from './pages/Scheduler';
 
 import { DataProvider } from './context/DataContext';
 import { ClientsProvider } from './context/ClientsContext';
@@ -85,6 +87,8 @@ const AppContent: React.FC = () => {
               <Route path="/settings" element={<Settings />} />
               <Route path="/docs" element={<Documents />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/inventory" element={<Inventory />} />
+              <Route path="/scheduler" element={<Scheduler />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>

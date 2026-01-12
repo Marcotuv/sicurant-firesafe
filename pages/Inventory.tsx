@@ -1,17 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { supabaseConfig } from '../config/supabase';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../config/supabase';
 
 const Inventory: React.FC = () => {
     const { profile } = useAuth();
     const [items, setItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [newItem, setNewItem] = useState({ sku: '', name: '', quantity: 0, min_quantity: 5 });
-
-    // Auth check explicitly needed if context doesn't provide client already initialized with user session for custom queries
-    // Assuming global supabase client or createClient here.Ideally pass from context.
-    const supabase = createClient(supabaseConfig.url!, supabaseConfig.key!);
 
     useEffect(() => {
         fetchInventory();
