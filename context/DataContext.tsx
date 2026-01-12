@@ -226,6 +226,19 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       }
 
+      // --- 6. ARTICLES ---
+      if (articles.length > 0) {
+        const payload = articles.map(a => ({
+          id: a.id,
+          categoria: a.categoria,
+          descrizione: a.descrizione,
+          note: a.note,
+          updated_at: a.updatedAt || new Date().toISOString()
+        }));
+        const { error } = await supabase.from('articles').upsert(payload);
+        if (error) throw error;
+      }
+
       await refreshClients();
     });
   }, [supabaseConfig, interventions, assets, sessions, quotations, attendanceHistory, safeSync, refreshClients]);
@@ -382,7 +395,20 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setAttendanceHistory(mappedAtt);
         }
 
-        // 6. TECHNICIANS (from profiles table)
+        // 6. ARTICLES
+        const { data: artData } = await client.from('articles').select('*');
+        if (artData) {
+          const mappedArt: Article[] = artData.map((d: any) => ({
+            id: d.id,
+            categoria: d.categoria,
+            descrizione: d.descrizione,
+            note: d.note,
+            updatedAt: d.updated_at
+          }));
+          setArticles(mappedArt);
+        }
+
+        // 7. TECHNICIANS (from profiles table)
         const { data: techData } = await client.from('profiles').select('*');
         if (techData) {
           const mappedTech: Technician[] = techData.map((d: any, index: number) => ({

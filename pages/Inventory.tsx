@@ -1,16 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../config/supabase';
+import { useData } from '../context/DataContext';
 
 const Inventory: React.FC = () => {
     const { profile } = useAuth();
+    const { articles } = useData();
     const [items, setItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
-    const [newItem, setNewItem] = useState({ sku: '', name: '', quantity: 0, min_quantity: 5 });
+    const [newItem, setNewItem] = useState({ sku: '', name: '', quantity: 0, min_quantity: 5, article_id: '' });
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-    useEffect(() => {
-        fetchInventory();
-    }, []);
+    const filteredArticles = articles.filter(a =>
+        a.descrizione.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        a.id.toLowerCase().includes(searchTerm.toLowerCase())
+    ).slice(0, 10);
 
     const fetchInventory = async () => {
         setLoading(true);
@@ -23,7 +28,8 @@ const Inventory: React.FC = () => {
         if (!newItem.sku || !newItem.name) return;
         const { error } = await supabase.from('inventory_items').insert(newItem);
         if (!error) {
-            setNewItem({ sku: '', name: '', quantity: 0, min_quantity: 5 });
+            setNewItem({ sku: '', name: '', quantity: 0, min_quantity: 5, article_id: '' });
+            setSearchTerm('');
             fetchInventory();
         } else {
             console.error(error);
@@ -58,7 +64,40 @@ const Inventory: React.FC = () => {
             {isAdmin && (
                 <div className="mb-8 p-4 bg-gray-50 rounded border">
                     <h3 className="font-bold mb-2">Nuovo Articolo</h3>
-                    <div className="flex gap-2 flex-wrap">
+                    <div className="flex gap-2 flex-wrap items-start">
+                        <div className="relative flex-1 min-w-[200px]">
+                            <input
+                                className="border p-2 rounded w-full"
+                                placeholder="Cerca in Anagrafica..."
+                                value={searchTerm}
+                                onChange={e => {
+                                    setSearchTerm(e.target.value);
+                                    setIsDropdownOpen(true);
+                                }}
+                                onFocus={() => setIsDropdownOpen(true)}
+                            />
+                            {isDropdownOpen && searchTerm && (
+                                <div className="absolute z-10 w-full bg-white border rounded shadow-lg mt-1 max-h-60 overflow-y-auto">
+                                    {filteredArticles.map(a => (
+                                        <div
+                                            key={a.id}
+                                            className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                            onClick={() => {
+                                                setNewItem({ ...newItem, name: a.descrizione, sku: a.id, article_id: a.id });
+                                                setSearchTerm(a.descrizione);
+                                                setIsDropdownOpen(false);
+                                            }}
+                                        >
+                                            <div className="font-bold">{a.descrizione}</div>
+                                            <div className="text-xs text-gray-500">{a.id} - {a.categoria}</div>
+                                        </div>
+                                    ))}
+                                    {filteredArticles.length === 0 && (
+                                        <div className="p-2 text-gray-500 text-sm italic">Nessun risultato</div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                         <input className="border p-2 rounded" placeholder="SKU" value={newItem.sku} onChange={e => setNewItem({ ...newItem, sku: e.target.value })} />
                         <input className="border p-2 rounded" placeholder="Nome" value={newItem.name} onChange={e => setNewItem({ ...newItem, name: e.target.value })} />
                         <input className="border p-2 rounded w-24" type="number" placeholder="Qty" value={newItem.quantity} onChange={e => setNewItem({ ...newItem, quantity: parseInt(e.target.value) })} />

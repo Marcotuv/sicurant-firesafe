@@ -53,6 +53,21 @@ const Anagraphics: React.FC = () => {
         addService, addAnomaly, updateChecklistTemplate, updateCategoryAnomaly
     } = useData();
 
+    const fetchStocks = async () => {
+        const { data } = await supabase.from('inventory_items').select('article_id, quantity');
+        if (data) {
+            const map: Record<string, number> = {};
+            data.forEach((item: any) => {
+                if (item.article_id) map[item.article_id] = item.quantity;
+            });
+            setStocks(map);
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === 'articles') fetchStocks();
+    }, [activeTab]);
+
     const [activeTab, setActiveTab] = useState<Tab>('clients');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -74,6 +89,7 @@ const Anagraphics: React.FC = () => {
     const [selectedClientForInventory, setSelectedClientForInventory] = useState<Client | null>(null);
     const [newInventoryAsset, setNewInventoryAsset] = useState<Partial<Asset>>({});
     const [newItemName, setNewItemName] = useState('');
+    const [stocks, setStocks] = useState<Record<string, number>>({});
 
     // MAPPING ETICHETTE ITALIANO
     const tabLabels: Record<Tab, string> = {
@@ -257,13 +273,27 @@ const Anagraphics: React.FC = () => {
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full text-left text-sm text-gray-700 dark:text-gray-300">
-                                <thead className="bg-gray-100 dark:bg-slate-700 text-xs uppercase font-bold"><tr><th className="p-3">ID</th><th className="p-3">Categoria</th><th className="p-3">Descrizione</th><th className="p-3">Note</th><th className="p-3 text-right">Azioni</th></tr></thead>
+                                <thead className="bg-gray-100 dark:bg-slate-700 text-xs uppercase font-bold">
+                                    <tr>
+                                        <th className="p-3">ID</th>
+                                        <th className="p-3">Categoria</th>
+                                        <th className="p-3">Descrizione</th>
+                                        <th className="p-3">Giacenza</th>
+                                        <th className="p-3">Note</th>
+                                        <th className="p-3 text-right">Azioni</th>
+                                    </tr>
+                                </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
                                     {articles.map(a => (
                                         <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-slate-900">
                                             <td className="p-3 font-mono text-blue-500">{a.id}</td>
                                             <td className="p-3">{a.categoria}</td>
                                             <td className="p-3 font-medium">{a.descrizione}</td>
+                                            <td className="p-3">
+                                                <span className={`font-bold ${stocks[a.id] !== undefined ? (stocks[a.id] > 0 ? 'text-green-600' : 'text-red-500') : 'text-gray-400'}`}>
+                                                    {stocks[a.id] ?? '-'}
+                                                </span>
+                                            </td>
                                             <td className="p-3 text-gray-400 italic">{a.note}</td>
                                             <td className="p-3 text-right">
                                                 {canDelete && <button onClick={() => deleteArticle(a.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button>}
