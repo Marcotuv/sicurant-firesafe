@@ -6,19 +6,21 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
-import Dashboard from './pages/Dashboard';
-import TechIntervention from './pages/TechIntervention';
-import InterventionLog from './pages/InterventionLog';
-import Anagraphics from './pages/Anagraphics';
-import Planning from './pages/Planning';
-import HrManagement from './pages/HrManagement';
-import Quotations from './pages/Quotations'; // NUOVO
-import Settings from './pages/Settings';
-import Documents from './pages/Documents';
-import Profile from './pages/Profile';
-import Login from './pages/Login';
-import Inventory from './pages/Inventory';
-import Scheduler from './pages/Scheduler';
+
+// Lazy loading components
+const Dashboard = React.lazy(() => import('./pages/Dashboard'));
+const TechIntervention = React.lazy(() => import('./pages/TechIntervention'));
+const InterventionLog = React.lazy(() => import('./pages/InterventionLog'));
+const Anagraphics = React.lazy(() => import('./pages/Anagraphics'));
+const Planning = React.lazy(() => import('./pages/Planning'));
+const HrManagement = React.lazy(() => import('./pages/HrManagement'));
+const Quotations = React.lazy(() => import('./pages/Quotations'));
+const Settings = React.lazy(() => import('./pages/Settings'));
+const Documents = React.lazy(() => import('./pages/Documents'));
+const Profile = React.lazy(() => import('./pages/Profile'));
+const Login = React.lazy(() => import('./pages/Login'));
+const Inventory = React.lazy(() => import('./pages/Inventory'));
+const Scheduler = React.lazy(() => import('./pages/Scheduler'));
 
 import { DataProvider } from './context/DataContext';
 import { ClientsProvider } from './context/ClientsContext';
@@ -76,21 +78,27 @@ const AppContent: React.FC = () => {
 
         <main className="flex-1 overflow-x-hidden overflow-y-auto sm:p-6 p-4 scroll-smooth print:overflow-visible print:h-auto print:p-0 print:m-0 print:block">
           <div className="container mx-auto max-w-7xl pb-10 print:max-w-none print:pb-0 print:w-full">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/planning" element={<Planning />} />
-              <Route path="/hr-management" element={<HrManagement />} />
-              <Route path="/quotations" element={<Quotations />} />
-              <Route path="/technician" element={<TechIntervention />} />
-              <Route path="/interventions" element={<InterventionLog />} />
-              <Route path="/anagraphics" element={<Anagraphics />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/docs" element={<Documents />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/inventory" element={<Inventory />} />
-              <Route path="/scheduler" element={<Scheduler />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+            <React.Suspense fallback={
+              <div className="flex items-center justify-center p-12">
+                <Loader2 className="animate-spin text-primary-600 w-8 h-8" />
+              </div>
+            }>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/planning" element={<Planning />} />
+                <Route path="/hr-management" element={<HrManagement />} />
+                <Route path="/quotations" element={<Quotations />} />
+                <Route path="/technician" element={<TechIntervention />} />
+                <Route path="/interventions" element={<InterventionLog />} />
+                <Route path="/anagraphics" element={<Anagraphics />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/docs" element={<Documents />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/inventory" element={<Inventory />} />
+                <Route path="/scheduler" element={<Scheduler />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </React.Suspense>
           </div>
         </main>
       </div>
