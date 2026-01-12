@@ -43,7 +43,7 @@ const Login = () => {
           </div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Sicur.Ant</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-2">Intranet Gestione Antincendio</p>
-          <div className="mt-2 inline-block bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] px-2 py-0.5 rounded border border-emerald-500/20 font-mono">v1.0.2-PROD</div>
+          <div className="mt-2 inline-block bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] px-2 py-0.5 rounded border border-emerald-500/20 font-mono">v1.0.3-CSS_FIX</div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
