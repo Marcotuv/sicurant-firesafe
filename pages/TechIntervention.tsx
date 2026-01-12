@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { CheckCircle, AlertTriangle, FileText, Wrench, Save, X, Search, Eraser, FileCheck, Printer, Loader2, ClipboardCheck, FileOutput, Database, ChevronDown, ChevronUp, Calendar, MapPin, ArrowRight, Briefcase, User, Building, MessageSquare, Camera, Plus, Send } from 'lucide-react';
 import { Asset, Intervention, Client, InternalComment } from '../types';
-import { CATEGORY_STANDARDS } from '../data';
+import { CATEGORY_STANDARDS } from '../lib/constants';
 import { getLocalDate, isAssetExpired, addMonthsToDate } from '../utils/dates';
 import { SignaturePad } from '../components/SignaturePad';
 import { useAuth } from '../context/AuthContext';

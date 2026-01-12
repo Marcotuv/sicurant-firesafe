@@ -5,7 +5,7 @@ import {
 } from '../types';
 import {
   INITIAL_ASSETS, INITIAL_ARTICLES, INITIAL_INTERVENTIONS, INITIAL_NOTIFICATIONS, SERVICES_LIST, ANOMALIES_LIST, CHECKLIST_TEMPLATES, CATEGORY_ANOMALIES
-} from '../data';
+} from '../lib/constants';
 import { createClient } from '@supabase/supabase-js';
 import { envConfig } from '../config/supabase';
 // @ts-ignore

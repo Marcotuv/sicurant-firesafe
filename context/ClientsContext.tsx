@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '../config/supabase';
 import { Client } from '../types';
-import { INITIAL_CLIENTS } from '../data';
+import { INITIAL_CLIENTS } from '../lib/constants';
 // @ts-ignore
 import { get, set } from 'idb-keyval';
 
