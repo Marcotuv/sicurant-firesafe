@@ -121,7 +121,6 @@ const Header: React.FC<HeaderProps> = ({ darkMode, toggleDarkMode }) => {
           </svg>
         </div>
         <h1 className="text-xl font-bold tracking-tight hidden sm:block">Sicur.Ant <span className="font-normal opacity-80 text-sm">Intranet</span></h1>
-        <span className="hidden lg:block bg-emerald-500/20 text-emerald-400 text-[10px] px-1.5 py-0.5 rounded border border-emerald-500/30 font-mono tracking-tighter">v1.0.1-PROD</span>
       </div>
 
       <div className="flex items-center space-x-2 sm:space-x-4">
