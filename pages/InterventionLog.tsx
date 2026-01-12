@@ -224,7 +224,7 @@ const InterventionLog: React.FC = () => {
 
             {selectedSession && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 print:fixed print:inset-0 print:bg-white print:p-0 print:z-[100]">
-                    <div id="report" className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto text-gray-900 print:shadow-none print:max-w-none print:max-h-none print:overflow-visible print:w-full print:h-auto print:absolute print:top-0 print:left-0 animate-fade-in">
+                    <div id="report" className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto text-gray-900 dark:text-gray-100 print:shadow-none print:max-w-none print:max-h-none print:overflow-visible print:w-full print:h-auto print:absolute print:top-0 print:left-0 animate-fade-in">
                         <div className="no-print flex justify-between items-center p-5 border-b bg-gray-50 dark:bg-slate-800 dark:border-slate-700 sticky top-0 z-10">
                             <h3 className="font-bold text-gray-800 dark:text-white">Rapporto Intervento Completo</h3>
                             <div className="flex gap-2">
@@ -260,10 +260,10 @@ const InterventionLog: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-3 gap-6 text-xs bg-gray-50 p-4 rounded-xl print:bg-white print:border print:p-4">
-                                <div><span className="block text-gray-400 uppercase font-bold mb-0.5">Asset Controllati</span><span className="font-bold text-lg text-gray-800">{selectedSession.assetsChecked}</span></div>
-                                <div><span className="block text-gray-400 uppercase font-bold mb-0.5">Totale Anomalie</span><span className={`font-bold text-lg ${selectedSession.totalAnomalies > 0 ? 'text-red-600' : 'text-emerald-600'}`}>{selectedSession.totalAnomalies}</span></div>
-                                <div><span className="block text-gray-400 uppercase font-bold mb-0.5">Manutentore</span><span className="font-bold text-lg text-gray-800">{selectedSession.technicianName}</span></div>
+                            <div className="grid grid-cols-3 gap-6 text-xs bg-gray-50 dark:bg-slate-800/50 p-4 rounded-xl print:bg-white print:border print:p-4">
+                                <div><span className="block text-gray-400 dark:text-gray-500 uppercase font-bold mb-0.5">Asset Controllati</span><span className="font-bold text-lg text-gray-800 dark:text-gray-200">{selectedSession.assetsChecked}</span></div>
+                                <div><span className="block text-gray-400 dark:text-gray-500 uppercase font-bold mb-0.5">Totale Anomalie</span><span className={`font-bold text-lg ${selectedSession.totalAnomalies > 0 ? 'text-red-600' : 'text-emerald-600'}`}>{selectedSession.totalAnomalies}</span></div>
+                                <div><span className="block text-gray-400 dark:text-gray-500 uppercase font-bold mb-0.5">Manutentore</span><span className="font-bold text-lg text-gray-800 dark:text-gray-200">{selectedSession.technicianName}</span></div>
                             </div>
 
                             <div>
@@ -273,22 +273,22 @@ const InterventionLog: React.FC = () => {
                                         <div key={int.id} className="border border-gray-100 rounded-xl p-4 bg-gray-50/30 break-inside-avoid">
                                             <div className="flex justify-between items-start mb-3">
                                                 <div>
-                                                    <div className="font-bold text-gray-900">{int.assetName}</div>
-                                                    <div className="text-[10px] text-gray-500 font-mono uppercase">MAT: {int.assetId}</div>
+                                                    <div className="font-bold text-gray-900 dark:text-gray-100">{int.assetName}</div>
+                                                    <div className="text-[10px] text-gray-500 dark:text-gray-400 font-mono uppercase">MAT: {int.assetId}</div>
                                                 </div>
                                                 {int.anomalies.length > 0 ? <AlertCircle className="text-red-500" size={18} /> : <CheckCircle2 className="text-emerald-500" size={18} />}
                                             </div>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <div>
-                                                    <span className="text-[9px] font-bold text-gray-400 uppercase">Lavorazioni:</span>
-                                                    <ul className="text-xs text-gray-700 list-disc pl-4 mt-1">
+                                                    <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase">Lavorazioni:</span>
+                                                    <ul className="text-xs text-gray-700 dark:text-gray-300 list-disc pl-4 mt-1">
                                                         {int.services.map((s, idx) => <li key={idx}>{s}</li>)}
                                                     </ul>
                                                 </div>
                                                 {int.anomalies.length > 0 && (
                                                     <div>
-                                                        <span className="text-[9px] font-bold text-red-400 uppercase">Anomalie Riscontrate:</span>
-                                                        <ul className="text-xs text-red-700 list-disc pl-4 mt-1">
+                                                        <span className="text-[9px] font-bold text-red-500 uppercase">Anomalie Riscontrate:</span>
+                                                        <ul className="text-xs text-red-700 dark:text-red-400 list-disc pl-4 mt-1">
                                                             {int.anomalies.map((a, idx) => <li key={idx}>{a}</li>)}
                                                         </ul>
                                                     </div>

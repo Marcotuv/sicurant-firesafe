@@ -109,10 +109,10 @@ const Anagraphics: React.FC = () => {
             }
         };
 
-        if (activeTab === 'articles') {
+        if (activeTab === 'articles' || isInventoryModalOpen) {
             fetchStocks();
         }
-    }, [activeTab]);
+    }, [activeTab, isInventoryModalOpen]);
 
     useEffect(() => {
         if (!canAccess) {
@@ -277,39 +277,62 @@ const Anagraphics: React.FC = () => {
                 {/* Articles Tab */}
                 {activeTab === 'articles' && (
                     <div className="space-y-4 animate-fade-in">
-                        <div className="flex justify-between items-center">
-                            <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200">Articoli</h3>
-                            <button onClick={handleOpenArticleModal} className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded text-sm flex items-center shadow-sm"><Plus size={16} className="mr-2" /> Nuovo</button>
+                        <div className="flex justify-between items-center bg-gray-50 dark:bg-slate-900/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700">
+                            <div>
+                                <h3 className="font-bold text-lg text-gray-800 dark:text-gray-100 italic">Lista Articoli Master</h3>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">Questi articoli definiscono il catalogo utilizzabile nel Magazzino</p>
+                            </div>
+                            <button onClick={handleOpenArticleModal} className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center shadow-lg transition-transform active:scale-95">
+                                <Plus size={18} className="mr-2" /> Nuovo Articolo
+                            </button>
                         </div>
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-slate-700">
                             <table className="w-full text-left text-sm text-gray-700 dark:text-gray-300">
-                                <thead className="bg-gray-100 dark:bg-slate-700 text-xs uppercase font-bold">
+                                <thead className="bg-gray-50 dark:bg-slate-900/80 text-xs uppercase font-black tracking-widest text-gray-500 dark:text-gray-400">
                                     <tr>
-                                        <th className="p-3">ID</th>
-                                        <th className="p-3">Categoria</th>
-                                        <th className="p-3">Descrizione</th>
-                                        <th className="p-3">Giacenza</th>
-                                        <th className="p-3">Note</th>
-                                        <th className="p-3 text-right">Azioni</th>
+                                        <th className="p-4">SKU / ID</th>
+                                        <th className="p-4">Tipologia/Categoria</th>
+                                        <th className="p-4">Descrizione</th>
+                                        <th className="p-4 text-center">Giacenza Web</th>
+                                        <th className="p-4">Informazioni Varie</th>
+                                        <th className="p-4 text-right">Azioni</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
                                     {articles.map(a => (
-                                        <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-slate-900">
-                                            <td className="p-3 font-mono text-blue-500">{a.id}</td>
-                                            <td className="p-3">{a.categoria}</td>
-                                            <td className="p-3 font-medium">{a.descrizione}</td>
-                                            <td className="p-3">
-                                                <span className={`font-bold ${stocks[a.id] !== undefined ? (stocks[a.id] > 0 ? 'text-green-600' : 'text-red-500') : 'text-gray-400'}`}>
-                                                    {stocks[a.id] ?? '-'}
+                                        <tr key={a.id} className="hover:bg-primary-50/30 dark:hover:bg-slate-700/30 transition-colors group">
+                                            <td className="p-4 font-mono text-primary-600 dark:text-blue-400 font-bold">{a.id}</td>
+                                            <td className="p-4">
+                                                <span className="bg-gray-100 dark:bg-slate-900 px-2 py-1 rounded text-[10px] font-black uppercase text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-slate-700">
+                                                    {a.categoria}
                                                 </span>
                                             </td>
-                                            <td className="p-3 text-gray-400 italic">{a.note}</td>
-                                            <td className="p-3 text-right">
-                                                {canDelete && <button onClick={() => deleteArticle(a.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button>}
+                                            <td className="p-4 font-bold text-gray-900 dark:text-gray-100">{a.descrizione}</td>
+                                            <td className="p-4 text-center">
+                                                <div className={`text-lg font-black inline-flex items-center px-3 py-1 rounded-lg ${stocks[a.id] !== undefined ? (stocks[a.id] > 0 ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'text-red-500 bg-red-50 dark:bg-red-900/20') : 'text-gray-300'}`}>
+                                                    {stocks[a.id] ?? '-'}
+                                                </div>
+                                            </td>
+                                            <td className="p-4 text-gray-400 italic text-xs max-w-xs truncate">{a.note}</td>
+                                            <td className="p-4 text-right">
+                                                {canDelete && (
+                                                    <button
+                                                        onClick={() => { if (confirm("Eliminare definitivamente questo articolo?")) deleteArticle(a.id) }}
+                                                        className="text-gray-300 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all opacity-0 group-hover:opacity-100"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
+                                    {articles.length === 0 && (
+                                        <tr>
+                                            <td colSpan={6} className="p-10 text-center text-gray-400 italic">
+                                                Nessun articolo in anagrafica. Comincia cliccando "Nuovo Articolo".
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -563,10 +586,14 @@ const Anagraphics: React.FC = () => {
                                 />
                                 <ChevronDown size={16} className="absolute right-2 top-2.5 text-gray-400 pointer-events-none" />
                                 {isInventoryTypeDropdownOpen && filteredArticles.length > 0 && (
-                                    <ul className="absolute z-10 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 w-full max-h-60 overflow-y-auto shadow-lg rounded mt-1">
+                                    <ul className="absolute z-50 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 w-full max-h-60 overflow-y-auto shadow-2xl rounded-xl mt-2 backdrop-blur-md">
                                         {filteredArticles.map(a => (
-                                            <li key={a.id} className="p-2 hover:bg-blue-50 dark:hover:bg-slate-700 cursor-pointer text-sm text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-slate-700 last:border-0" onClick={() => { setNewInventoryAsset({ ...newInventoryAsset, tipo: a.descrizione, categoria: a.categoria }); setIsInventoryTypeDropdownOpen(false) }}>
-                                                <span className="font-bold">{a.descrizione}</span> <span className="text-xs opacity-70 ml-1">({a.categoria})</span>
+                                            <li key={a.id} className="p-3 hover:bg-primary-50 dark:hover:bg-slate-700 cursor-pointer text-sm text-gray-800 dark:text-gray-200 border-b border-gray-50 dark:border-slate-700 last:border-0" onClick={() => { setNewInventoryAsset({ ...newInventoryAsset, tipo: a.descrizione, categoria: a.categoria }); setIsInventoryTypeDropdownOpen(false) }}>
+                                                <div className="font-bold text-gray-900 dark:text-white">{a.descrizione}</div>
+                                                <div className="text-xs text-gray-500 dark:text-gray-400 flex justify-between mt-1">
+                                                    <span>{a.categoria}</span>
+                                                    <span className="opacity-50">Stock: {stocks[a.id] ?? 0}</span>
+                                                </div>
                                             </li>
                                         ))}
                                     </ul>

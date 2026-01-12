@@ -9,20 +9,20 @@ export interface Client {
   referente: string;
   telefono: string;
   email: string;
-  commessa?: string;    
-  idCommessa?: string;  
-  struttura?: string;   
+  commessa?: string;
+  idCommessa?: string;
+  struttura?: string;
   indirizzoStruttura?: string;
-  idStruttura?: string; 
-  referenteCommessa?: string; 
-  recapitoCommessa?: string;  
+  idStruttura?: string;
+  referenteCommessa?: string;
+  recapitoCommessa?: string;
   pagamento?: string;
   note?: string;
   updatedAt?: string;
 }
 
 export interface Article {
-  id: string; 
+  id: string;
   categoria: string;
   descrizione: string;
   note: string;
@@ -30,11 +30,11 @@ export interface Article {
 }
 
 export interface Asset {
-  id: string; 
-  clientId: number; 
-  tipo: string; 
-  matricola?: string; 
-  ubicazione?: string; 
+  id: string;
+  clientId: number;
+  tipo: string;
+  matricola?: string;
+  ubicazione?: string;
   scadenza: string;
   dataUltimaRevisione?: string;
   categoria?: string;
@@ -60,25 +60,27 @@ export interface Intervention {
   services: string[];
   anomalies: string[];
   notes: string;
-  photos?: string[]; 
+  photos?: string[];
   internalComments?: InternalComment[];
   generalNotes?: string;
-  technicianSignature?: string; 
-  technicianSignatureImage?: string; 
-  clientSignature?: string; 
+  technicianSignature?: string;
+  technicianSignatureImage?: string;
+  clientSignature?: string;
   clientSignatureImage?: string;
+  progressive_code?: string;
+  asset_id?: string;
   updatedAt?: string;
 }
 
 export interface WorkSession {
-  id: string; 
+  id: string;
   clientId: number;
   startTimestamp: string;
-  status: 'PLANNED' | 'OPEN' | 'CLOSED'; 
-  scheduledDate?: string; 
-  assignedTechId?: string; 
+  status: 'PLANNED' | 'OPEN' | 'CLOSED';
+  scheduledDate?: string;
+  assignedTechId?: string;
   assignedTechIds?: string[];
-  assignedTechName?: string; 
+  assignedTechName?: string;
   generalNotes: string;
   technicianSignature: string;
   technicianSignatureImage: string;
@@ -93,7 +95,7 @@ export interface Technician {
   id: string;
   name: string;
   email: string;
-  color: string; 
+  color: string;
 }
 
 export interface NotificationAttachment {
@@ -119,18 +121,18 @@ export type AttendanceType = 'ENTRATA' | 'USCITA' | 'FERIE' | 'ROL' | 'MALATTIA'
 export type ApprovalStatus = 'APPROVED' | 'PENDING' | 'REJECTED';
 
 export interface AttendanceRecord {
-    id: string;
-    userId: string;
-    userName: string;
-    type: AttendanceType;
-    status: ApprovalStatus; 
-    timestamp: string;
-    latitude?: number;
-    longitude?: number;
-    notes?: string;
-    approvedBy?: string; 
-    approvalTimestamp?: string;
-    synced?: boolean;
+  id: string;
+  userId: string;
+  userName: string;
+  type: AttendanceType;
+  status: ApprovalStatus;
+  timestamp: string;
+  latitude?: number;
+  longitude?: number;
+  notes?: string;
+  approvedBy?: string;
+  approvalTimestamp?: string;
+  synced?: boolean;
 }
 
 export type QuotationStatus = 'DRAFT' | 'SENT' | 'ACCEPTED_TO_PLAN' | 'ACCEPTED_PLANNED' | 'CLOSED' | 'REJECTED' | 'EXPIRED';
@@ -138,32 +140,32 @@ export type QuotationType = 'PREVENTIVO' | 'CONSUNTIVO';
 export type QuotationCategory = 'FORNITURA' | 'MANUTENZIONE_ORDINARIA' | 'MANUTENZIONE_STRAORDINARIA';
 
 export interface QuotationItem {
-    id: string;
-    type: 'ARTICLE' | 'SERVICE' | 'CUSTOM';
-    description: string;
-    refId?: string; 
-    quantity: number;
-    unitPrice: number;
-    total: number;
+  id: string;
+  type: 'ARTICLE' | 'SERVICE' | 'CUSTOM';
+  description: string;
+  refId?: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
 }
 
 export interface Quotation {
-    id: string;
-    number: string; // Numero progressivo (es. 2025/001)
-    type: QuotationType;
-    category: QuotationCategory;
-    clientId: number;
-    clientName: string;
-    title: string;
-    description: string;
-    items: QuotationItem[];
-    amount: number;
-    status: QuotationStatus;
-    date: string;
-    expiryDate: string;
-    notes?: string;
-    updatedAt?: string;
-    interventionRefId?: string; // ID della sessione o intervento collegato
+  id: string;
+  number: string; // Numero progressivo (es. 2025/001)
+  type: QuotationType;
+  category: QuotationCategory;
+  clientId: number;
+  clientName: string;
+  title: string;
+  description: string;
+  items: QuotationItem[];
+  amount: number;
+  status: QuotationStatus;
+  date: string;
+  expiryDate: string;
+  notes?: string;
+  updatedAt?: string;
+  interventionRefId?: string; // ID della sessione o intervento collegato
 }
 
 export interface Note {
@@ -184,12 +186,12 @@ export interface DataContextType {
   assets: Asset[];
   services: string[];
   anomalies: string[];
-  checklistTemplates: Record<string, string[]>; 
+  checklistTemplates: Record<string, string[]>;
   categoryAnomalies: Record<string, string[]>;
-  interventions: Intervention[]; 
+  interventions: Intervention[];
   notifications: Notification[];
-  sessions: WorkSession[]; 
-  technicians: Technician[]; 
+  sessions: WorkSession[];
+  technicians: Technician[];
   attendanceHistory: AttendanceRecord[];
   quotations: Quotation[];
   isLoading: boolean;
@@ -199,28 +201,28 @@ export interface DataContextType {
   updateUserNotes: (notes: Note[]) => void;
   saveUserSignature: (signature: string) => void;
 
-  remoteUrl: string; 
+  remoteUrl: string;
   supabaseConfig: SupabaseConfig;
   setSupabaseConfig: (config: SupabaseConfig) => void;
   setRemoteUrl: (url: string) => void;
-  
+
   syncData: () => Promise<{ success: boolean; message: string }>;
-  downloadCloudData: () => Promise<{ success: boolean; message?: string }>; 
+  downloadCloudData: () => Promise<{ success: boolean; message?: string }>;
 
   getOpenSession: (clientId: number) => WorkSession | undefined;
   createSession: (clientId: number) => WorkSession;
-  scheduleSession: (clientId: number, date: string, techIds: string[]) => void; 
+  scheduleSession: (clientId: number, date: string, techIds: string[]) => void;
   updateSession: (clientId: number, data: Partial<WorkSession>) => void;
   updatePlannedSession: (sessionId: string, date: string, techIds: string[]) => void;
-  
-  saveInterventionToSession: (sessionId: string, intervention: Intervention, metadata?: Partial<WorkSession>) => void; 
-  closeSession: (sessionId: string, finalMetadata?: Partial<WorkSession>) => void; 
+
+  saveInterventionToSession: (sessionId: string, intervention: Intervention, metadata?: Partial<WorkSession>) => void;
+  closeSession: (sessionId: string, finalMetadata?: Partial<WorkSession>) => void;
   reopenSession: (clientId: number) => void;
-  deleteSession: (sessionId: string) => void; 
-  
+  deleteSession: (sessionId: string) => void;
+
   addIntervention: (intervention: Intervention) => void;
   addInterventionsBulk: (interventions: Intervention[]) => void;
-  
+
   addClient: (client: Client) => void;
   updateClient: (client: Client) => void;
   addClientsBulk: (clients: Omit<Client, 'id'>[]) => void;
@@ -232,15 +234,15 @@ export interface DataContextType {
 
   addAsset: (asset: Asset) => void;
   addAssetsBulk: (assets: Asset[]) => void;
-  updateAsset: (asset: Asset) => void; 
+  updateAsset: (asset: Asset) => void;
   deleteAsset: (id: string) => void;
 
   addService: (service: string) => void;
   addAnomaly: (anomaly: string) => void;
   deleteService: (service: string) => void;
   deleteAnomaly: (anomaly: string) => void;
-  
-  updateChecklistTemplate: (category: string, items: string[]) => void; 
+
+  updateChecklistTemplate: (category: string, items: string[]) => void;
   updateCategoryAnomaly: (category: string, items: string[]) => void;
 
   markNotificationAsRead: (id: string, userId: string) => void;
@@ -248,7 +250,7 @@ export interface DataContextType {
   addNotification: (notification: Omit<Notification, 'id' | 'readBy' | 'timestamp'>) => void;
 
   addAttendanceRecord: (record: AttendanceRecord) => void;
-  updateAttendanceStatus: (recordId: string, status: ApprovalStatus, officeUserId: string) => void; 
+  updateAttendanceStatus: (recordId: string, status: ApprovalStatus, officeUserId: string) => void;
 
   addQuotation: (q: Quotation) => void;
   updateQuotation: (id: string, data: Partial<Quotation>) => void;
