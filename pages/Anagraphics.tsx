@@ -2,6 +2,7 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../config/supabase';
 import { Database, Plus, Trash2, Edit, X, Save, Upload, Package, MapPin, CreditCard, User, Briefcase, Building, ChevronDown, Lock, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Client, Asset, Article } from '../types';
@@ -30,22 +31,17 @@ const ClientSchema = z.object({
 
 type Tab = 'clients' | 'articles' | 'services' | 'anomalies';
 
+// MAPPING ETICHETTE ITALIANO - Moved outside to prevent re-creation and potential TDZ
+const TAB_LABELS: Record<Tab, string> = {
+    clients: 'Clienti',
+    articles: 'Articoli',
+    services: 'Servizi (Normative)',
+    anomalies: 'Anomalie'
+};
+
 const Anagraphics: React.FC = () => {
     const { profile } = useAuth();
     const navigate = useNavigate();
-
-    // Access Control: Admin or Office Only
-    const canAccess = profile?.role === 'admin' || profile?.role === 'office';
-    // Delete Control: ONLY Admin
-    const canDelete = profile?.role === 'admin';
-
-    useEffect(() => {
-        if (!canAccess) {
-            const t = setTimeout(() => navigate('/'), 3000);
-            return () => clearTimeout(t);
-        }
-    }, [canAccess, navigate]);
-
     const {
         clients, articles, assets, services, anomalies, checklistTemplates, categoryAnomalies,
         deleteClient, deleteArticle, deleteAsset, deleteService, deleteAnomaly,
@@ -53,52 +49,36 @@ const Anagraphics: React.FC = () => {
         addService, addAnomaly, updateChecklistTemplate, updateCategoryAnomaly
     } = useData();
 
-    const fetchStocks = async () => {
-        const { data } = await supabase.from('inventory_items').select('article_id, quantity');
-        if (data) {
-            const map: Record<string, number> = {};
-            data.forEach((item: any) => {
-                if (item.article_id) map[item.article_id] = item.quantity;
-            });
-            setStocks(map);
-        }
-    };
-
-    useEffect(() => {
-        if (activeTab === 'articles') fetchStocks();
-    }, [activeTab]);
-
+    // 1. ALL STATE HOOKS AT THE TOP
     const [activeTab, setActiveTab] = useState<Tab>('clients');
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [stocks, setStocks] = useState<Record<string, number>>({});
+    const [newItemName, setNewItemName] = useState('');
 
     const [isClientModalOpen, setIsClientModalOpen] = useState(false);
-    const [isArticleModalOpen, setIsArticleModalOpen] = useState(false);
-    const [isSimpleModalOpen, setIsSimpleModalOpen] = useState(false);
-    const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
-    const [isInventoryTypeDropdownOpen, setIsInventoryTypeDropdownOpen] = useState(false);
+    const [editingClientId, setEditingClientId] = useState<number | null>(null);
+    const [newClient, setNewClient] = useState<Partial<Client>>({});
+    const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
     const [isCustomPaymentInput, setIsCustomPaymentInput] = useState(false);
 
-    const [simpleModalType, setSimpleModalType] = useState<'service' | 'anomaly' | null>(null);
-    const [selectedCategory, setSelectedCategory] = useState<string>('');
-
-    const [newClient, setNewClient] = useState<Partial<Client>>({});
-    const [editingClientId, setEditingClientId] = useState<number | null>(null);
-    const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-
+    const [isArticleModalOpen, setIsArticleModalOpen] = useState(false);
     const [newArticle, setNewArticle] = useState<Partial<Article>>({});
+
+    const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
     const [selectedClientForInventory, setSelectedClientForInventory] = useState<Client | null>(null);
     const [newInventoryAsset, setNewInventoryAsset] = useState<Partial<Asset>>({});
-    const [newItemName, setNewItemName] = useState('');
-    const [stocks, setStocks] = useState<Record<string, number>>({});
+    const [isInventoryTypeDropdownOpen, setIsInventoryTypeDropdownOpen] = useState(false);
 
-    // MAPPING ETICHETTE ITALIANO
-    const tabLabels: Record<Tab, string> = {
-        clients: 'Clienti',
-        articles: 'Articoli',
-        services: 'Servizi (Normative)',
-        anomalies: 'Anomalie'
-    };
+    const [isSimpleModalOpen, setIsSimpleModalOpen] = useState(false);
+    const [simpleModalType, setSimpleModalType] = useState<'service' | 'anomaly'>('service');
+    const [selectedCategory, setSelectedCategory] = useState('');
 
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // 2. LOGIC VARIABLES (Derived from state/profile)
+    const canAccess = profile?.role === 'admin' || profile?.role === 'office';
+    const canDelete = profile?.role === 'admin';
+
+    // 3. MEMIZED LOGIC
     const filteredArticles = useMemo(() => {
         const term = (newInventoryAsset.tipo || '').toLowerCase();
         if (!isInventoryTypeDropdownOpen && !term) return [];
@@ -111,6 +91,36 @@ const Anagraphics: React.FC = () => {
 
         return list.slice(0, 50);
     }, [articles, newInventoryAsset.tipo, isInventoryTypeDropdownOpen]);
+
+    // 4. EFFECTS
+    useEffect(() => {
+        const fetchStocks = async () => {
+            try {
+                const { data } = await supabase.from('inventory_items').select('article_id, quantity');
+                if (data) {
+                    const map: Record<string, number> = {};
+                    data.forEach((item: any) => {
+                        if (item.article_id) map[item.article_id] = item.quantity;
+                    });
+                    setStocks(map);
+                }
+            } catch (e) {
+                console.error("Error fetching stocks:", e);
+            }
+        };
+
+        if (activeTab === 'articles') {
+            fetchStocks();
+        }
+    }, [activeTab]);
+
+    useEffect(() => {
+        if (!canAccess) {
+            const t = setTimeout(() => navigate('/'), 3000);
+            return () => clearTimeout(t);
+        }
+    }, [canAccess, navigate]);
+
 
     // --- ACCESS DENIED RENDER ---
     if (!canAccess) {
@@ -232,7 +242,7 @@ const Anagraphics: React.FC = () => {
             <div className="flex space-x-2 border-b border-gray-200 dark:border-slate-700 overflow-x-auto">
                 {['clients', 'articles', 'services', 'anomalies'].map(t => (
                     <button key={t} onClick={() => setActiveTab(t as Tab)} className={`px-6 py-3 border-b-2 font-medium whitespace-nowrap ${activeTab === t ? 'border-primary-600 text-primary-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
-                        {tabLabels[t as Tab]}
+                        {TAB_LABELS[t as Tab]}
                     </button>
                 ))}
             </div>

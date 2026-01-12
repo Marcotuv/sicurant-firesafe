@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
 import { supabase } from '../config/supabase';
 import { Client } from '../types';
 import { INITIAL_CLIENTS } from '../lib/constants';
@@ -23,6 +23,7 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isFirstLoad = useRef(true);
 
   // Carica da IndexedDB all'avvio
   useEffect(() => {
@@ -46,10 +47,16 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
     loadClients();
   }, []);
 
-  // Salva in IndexedDB quando cambiano
+  // Salva in IndexedDB quando cambiano con DEBOUNCE
   useEffect(() => {
-    if (!loading) {
-      set('clients', clients).catch(err => console.warn("IDB Save Error", err));
+    if (!loading && !isFirstLoad.current) {
+      const timer = setTimeout(() => {
+        set('clients', clients).catch(err => console.warn("IDB Save Error", err));
+      }, 1000); // 1 second debounce
+      return () => clearTimeout(timer);
+    } else if (!loading && isFirstLoad.current) {
+      // First load finished, allow subsequent writes
+      isFirstLoad.current = false;
     }
   }, [clients, loading]);
 
@@ -151,10 +158,8 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const refreshClients = useCallback(async () => {
     if (!supabase) return;
-    // Selezioniamo tutto (*) ora che abbiamo colonne
     const { data, error } = await supabase.from('clients').select('*');
     if (!error && data) {
-      // Mappiamo da SQL a Oggetto TS
       const remoteClients: Client[] = data.map((d: any) => ({
         id: d.id,
         nome: d.nome,
@@ -180,17 +185,19 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   }, []);
 
+  const value = React.useMemo(() => ({
+    clients,
+    loading,
+    error,
+    addClient,
+    updateClient,
+    deleteClient,
+    addClientsBulk,
+    refreshClients
+  }), [clients, loading, error, addClient, updateClient, deleteClient, addClientsBulk, refreshClients]);
+
   return (
-    <ClientsContext.Provider value={{
-      clients,
-      loading,
-      error,
-      addClient,
-      updateClient,
-      deleteClient,
-      addClientsBulk,
-      refreshClients
-    }}>
+    <ClientsContext.Provider value={value}>
       {children}
     </ClientsContext.Provider>
   );

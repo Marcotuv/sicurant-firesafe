@@ -13,7 +13,7 @@ const Sidebar: React.FC = () => {
 
   const navItems = [
     { to: "/", icon: LayoutDashboard, label: "Dashboard", visible: true, end: true },
-    { to: "/scheduler", icon: Calendar, label: "Calendario", visible: isOffice }, // NUOVO
+    { to: "/scheduler", icon: Calendar, label: "Calendario", visible: canManageData }, // NUOVO
     { to: "/planning", icon: CalendarRange, label: "Pianificazione", visible: true },
     { to: "/inventory", icon: Package, label: "Magazzino", visible: true }, // NUOVO
     { to: "/hr-management", icon: Users, label: "Gestione HR", visible: canManageData },

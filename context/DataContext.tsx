@@ -6,13 +6,12 @@ import {
 import {
   INITIAL_ASSETS, INITIAL_ARTICLES, INITIAL_INTERVENTIONS, INITIAL_NOTIFICATIONS, SERVICES_LIST, ANOMALIES_LIST, CHECKLIST_TEMPLATES, CATEGORY_ANOMALIES
 } from '../lib/constants';
-import { createClient } from '@supabase/supabase-js';
 import { envConfig } from '../config/supabase';
-// @ts-ignore
 import { get, set } from 'idb-keyval';
 import { useClients } from './ClientsContext';
 import { useSyncManager } from '../hooks/useSyncManager';
 import { getLocalDate, getTimestamp } from '../utils/dates';
+import { supabase as globalSupabase } from '../config/supabase';
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
@@ -83,10 +82,81 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     loadData();
   }, []);
 
-  useEffect(() => { if (isInitialized) set('work_sessions', sessions); }, [sessions, isInitialized]);
-  useEffect(() => { if (isInitialized) set('interventions', interventions); }, [interventions, isInitialized]);
-  useEffect(() => { if (isInitialized) set('assets', assets); }, [assets, isInitialized]);
-  useEffect(() => { if (isInitialized) set('quotations', quotations); }, [quotations, isInitialized]);
+  // Optimized Persistence: Only save if data changed and debounce writes
+  const isFirstLoad = useRef(true);
+
+  // Unlock persistence after initialization and a small stability delay
+  useEffect(() => {
+    if (isInitialized) {
+      const timer = setTimeout(() => {
+        isFirstLoad.current = false;
+      }, 3000); // 3 seconds window where no IDB writes happen on boot
+      return () => clearTimeout(timer);
+    }
+  }, [isInitialized]);
+
+  const persistData = useCallback(async (key: string, data: any) => {
+    if (isFirstLoad.current) return;
+    try {
+      await set(key, data);
+    } catch (err) {
+      console.warn(`IDB Save Error [${key}]`, err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isInitialized) {
+      const timer = setTimeout(() => {
+        persistData('work_sessions', sessions);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [sessions, isInitialized, persistData]);
+
+  useEffect(() => {
+    if (isInitialized) {
+      const timer = setTimeout(() => {
+        persistData('interventions', interventions);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [interventions, isInitialized, persistData]);
+
+  useEffect(() => {
+    if (isInitialized) {
+      const timer = setTimeout(() => {
+        persistData('assets', assets);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [assets, isInitialized, persistData]);
+
+  useEffect(() => {
+    if (isInitialized) {
+      const timer = setTimeout(() => {
+        persistData('quotations', quotations);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [quotations, isInitialized, persistData]);
+
+  useEffect(() => {
+    if (isInitialized) {
+      const timer = setTimeout(() => {
+        persistData('articles', articles);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [articles, isInitialized, persistData]);
+
+  useEffect(() => {
+    if (isInitialized) {
+      const timer = setTimeout(() => {
+        persistData('attendance_history', attendanceHistory);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [attendanceHistory, isInitialized, persistData]);
 
   // Helper puro per generare il numero basato su una lista esistente
   const generateQuotationNumberInternal = (list: Quotation[]) => {
@@ -108,8 +178,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const syncData = useCallback(async (): Promise<{ success: boolean; message: string }> => {
     return safeSync(async () => {
-      if (!supabaseConfig.url || !supabaseConfig.key) throw new Error("Cloud non configurato.");
-      const supabase = createClient(supabaseConfig.url, supabaseConfig.key);
+      const supabase = globalSupabase;
+      if (!supabase) throw new Error("Cloud non configurato correttamente.");
 
       // --- 1. INTERVENTIONS ---
       if (interventions.length > 0) {
@@ -243,242 +313,170 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
   }, [supabaseConfig, interventions, assets, sessions, quotations, attendanceHistory, safeSync, refreshClients]);
 
+  const downloadCloudData = useCallback(async () => {
+    const supabase = globalSupabase;
+    if (!supabase) return { success: false, message: "Cloud non configurato" };
+
+    try {
+      const currentSession = await supabase.auth.getSession();
+      const userId = currentSession.data.session?.user?.id;
+      if (!userId) return { success: false, message: "Utente non loggato" };
+
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', userId).single();
+      const userRole = profile?.role || 'technician';
+      const isAdminOrOffice = userRole === 'admin' || userRole === 'office';
+
+      setIsLoading(true);
+
+      const { data: assetsData } = await supabase.from('assets').select('*');
+      if (assetsData) {
+        const mappedAssets: Asset[] = assetsData.map((d: any) => ({
+          id: d.id, clientId: d.client_id, tipo: d.tipo, matricola: d.matricola, ubicazione: d.ubicazione,
+          scadenza: d.scadenza, dataUltimaRevisione: d.data_ultima_revisione, categoria: d.categoria,
+          note: d.note, specificData: d.specific_data, updatedAt: d.updated_at
+        }));
+        setAssets(mappedAssets);
+      }
+
+      let intQuery = supabase.from('interventions').select('*');
+      if (!isAdminOrOffice) {
+        const dateLimit = new Date();
+        dateLimit.setDate(dateLimit.getDate() - 45);
+        intQuery = intQuery.gte('timestamp', dateLimit.toISOString());
+      }
+
+      const { data: intData } = await intQuery;
+      if (intData) {
+        setInterventions(intData.map((d: any) => ({
+          id: d.id, clientId: d.client_id, clientName: '', assetId: d.asset_id, assetName: '',
+          timestamp: d.timestamp, services: d.services, anomalies: d.anomalies, notes: d.notes,
+          photos: d.photos, internalComments: d.internal_comments, technicianSignature: d.technician_signature,
+          technicianSignatureImage: d.technician_signature_img, clientSignature: d.client_signature,
+          clientSignatureImage: d.client_signature_img, updatedAt: d.updated_at
+        })));
+      }
+
+      const { data: sessData } = await supabase.from('work_sessions').select('*');
+      if (sessData) {
+        setSessions(sessData.map((d: any) => ({
+          id: d.id, clientId: d.client_id, startTimestamp: d.start_timestamp, status: d.statustext as any,
+          scheduledDate: d.scheduled_date, assignedTechIds: d.assigned_tech_ids, assignedTechName: d.assigned_tech_name,
+          generalNotes: d.general_notes, technicianSignature: d.tech_signature, technicianSignatureImage: d.tech_signature_img,
+          clientSignature: d.client_signature, clientSignatureImage: d.client_signature_img,
+          draftInterventions: [], interventionIds: d.intervention_ids || [], updatedAt: d.updated_at
+        })));
+      }
+
+      const { data: quotData } = await supabase.from('quotations').select('*');
+      if (quotData) {
+        setQuotations(quotData.map((d: any) => ({
+          id: d.id, number: d.number, type: d.type, category: d.category, clientId: d.client_id,
+          clientName: '', title: '', description: '', items: d.items, amount: d.amount,
+          status: d.status, date: d.date, expiryDate: d.expiry_date, notes: d.notes, updatedAt: d.updated_at
+        })));
+      }
+
+      const { data: attData } = await supabase.from('attendance_history').select('*');
+      if (attData) {
+        setAttendanceHistory(attData.map((d: any) => ({
+          id: d.id, userId: d.user_id, userName: d.user_name, type: d.type, status: d.status,
+          timestamp: d.timestamp, latitude: d.latitude, longitude: d.longitude, notes: d.notes,
+          approvedBy: d.approved_by, approvalTimestamp: d.approval_timestamp, synced: true
+        })));
+      }
+
+      const { data: artData } = await supabase.from('articles').select('*');
+      if (artData) {
+        setArticles(artData.map((d: any) => ({
+          id: d.id, categoria: d.categoria, descrizione: d.descrizione, note: d.note, updatedAt: d.updated_at
+        })));
+      }
+
+      const { data: techData } = await supabase.from('profiles').select('*');
+      if (techData) {
+        setTechnicians(techData.map((d: any, index: number) => ({
+          id: d.id, name: d.full_name || d.email.split('@')[0], email: d.email,
+          color: ['#2563eb', '#16a34a', '#dc2626', '#9333ea', '#ea580c', '#0d9488', '#0891b2', '#db2777', '#4f46e5', '#65a30d', '#d97706', '#059669', '#c026d3'][index % 13]
+        })));
+      }
+
+      await refreshClients();
+      return { success: true, message: `Download completato (${userRole})` };
+    } catch (error: any) {
+      console.error("Download Error", error);
+      return { success: false, message: error.message || "Errore download" };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [refreshClients]);
+
+  const getOpenSession = useCallback((clientId: number) => sessions.find(s => s.clientId === clientId && s.status === 'OPEN'), [sessions]);
+
+  const createSession = useCallback((clientId: number) => {
+    const timestamp = getTimestamp();
+    const newSession: WorkSession = {
+      id: `SESS-${Date.now()}`, clientId, startTimestamp: timestamp, status: 'OPEN',
+      generalNotes: '', technicianSignature: '', technicianSignatureImage: '', clientSignature: '', clientSignatureImage: '',
+      draftInterventions: [], interventionIds: [], updatedAt: timestamp
+    };
+    setSessions(prev => [...prev, newSession]);
+    return newSession;
+  }, []);
+
+  const scheduleSession = useCallback((clientId: number, date: string, techIds: string[]) => {
+    const newSession: WorkSession = {
+      id: `PLAN-${Date.now()}`, clientId, startTimestamp: '', status: 'PLANNED', scheduledDate: date,
+      assignedTechIds: techIds, assignedTechName: '', generalNotes: '', technicianSignature: '', technicianSignatureImage: '', clientSignature: '', clientSignatureImage: '',
+      draftInterventions: [], interventionIds: [], updatedAt: getTimestamp()
+    };
+    setSessions(prev => [...prev, newSession]);
+  }, []);
+
+  const updateSession = useCallback((clientId: number, data: Partial<WorkSession>) => setSessions(prev => prev.map(s => s.clientId === clientId && s.status === 'OPEN' ? { ...s, ...data, updatedAt: getTimestamp() } : s)), []);
+  const updatePlannedSession = useCallback((sessionId: string, date: string, techIds: string[]) => setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, scheduledDate: date, assignedTechIds: techIds, updatedAt: getTimestamp() } : s)), []);
+
+  const saveInterventionToSession = useCallback((sessionId: string, intervention: Intervention, metadata?: Partial<WorkSession>) => {
+    setSessions(prev => prev.map(s => {
+      if (s.id === sessionId) {
+        const drafts = [...s.draftInterventions];
+        const idx = drafts.findIndex(i => i.assetId === intervention.assetId);
+        if (idx >= 0) drafts[idx] = intervention; else drafts.push(intervention);
+        return { ...s, ...metadata, draftInterventions: drafts, updatedAt: getTimestamp() };
+      }
+      return s;
+    }));
+  }, []);
+
+  const closeSession = useCallback((sessionId: string, finalMetadata?: Partial<WorkSession>) => {
+    setSessions(prev => {
+      const session = prev.find(s => s.id === sessionId);
+      if (session) {
+        setInterventions(old => [...session.draftInterventions, ...old]);
+      }
+      return prev.map(s => s.id === sessionId ? { ...s, ...finalMetadata, status: 'CLOSED' as const, draftInterventions: [], updatedAt: getTimestamp() } : s);
+    });
+  }, []);
+
   const value = useMemo(() => ({
     clients, articles, assets, services, anomalies, checklistTemplates, categoryAnomalies, interventions, notifications, sessions, technicians, attendanceHistory, quotations, isLoading,
     userNotes, userSignature, updateUserNotes: setUserNotes, saveUserSignature: setUserSignature,
     remoteUrl, setRemoteUrl: setRemoteUrlState, supabaseConfig, setSupabaseConfig: setSupabaseConfigState, syncData,
-    downloadCloudData: async () => {
-      if (!supabaseConfig.url || !supabaseConfig.key) return { success: false, message: "Cloud non configurato" };
-
-      try {
-        // Retrieve current user to determine role
-        const client = createClient(supabaseConfig.url, supabaseConfig.key);
-        const currentSession = await client.auth.getSession();
-        const userId = currentSession.data.session?.user?.id;
-        if (!userId) return { success: false, message: "Utente non loggato" };
-
-        const { data: profile } = await client.from('profiles').select('role').eq('id', userId).single();
-        const userRole = profile?.role || 'technician'; // Default safe
-        const isAdminOrOffice = userRole === 'admin' || userRole === 'office';
-
-        setIsLoading(true);
-
-        // 1. ASSETS
-        // Admin: Tutto. Tecnico: Tutto (per ora, come da piano sicurezza)
-        const { data: assetsData } = await client.from('assets').select('*');
-        if (assetsData) {
-          const mappedAssets: Asset[] = assetsData.map((d: any) => ({
-            id: d.id,
-            clientId: d.client_id,
-            tipo: d.tipo,
-            matricola: d.matricola,
-            ubicazione: d.ubicazione,
-            scadenza: d.scadenza,
-            dataUltimaRevisione: d.data_ultima_revisione,
-            categoria: d.categoria,
-            note: d.note,
-            specificData: d.specific_data,
-            updatedAt: d.updated_at
-          }));
-          setAssets(mappedAssets);
-        }
-
-        // 2. INTERVENTIONS
-        // Admin: Tutto. Tecnico: Solo ultimi 30 giorni
-        let intQuery = client.from('interventions').select('*');
-
-        if (!isAdminOrOffice) {
-          // Smart Sync: Tecnici vedono solo interventi recenti (ultimi 45 giorni per sicurezza)
-          const dateLimit = new Date();
-          dateLimit.setDate(dateLimit.getDate() - 45);
-          intQuery = intQuery.gte('timestamp', dateLimit.toISOString());
-        }
-
-        const { data: intData } = await intQuery;
-        if (intData) {
-          const mappedInt: Intervention[] = intData.map((d: any) => ({
-            id: d.id,
-            clientId: d.client_id,
-            clientName: '',
-            assetId: d.asset_id,
-            assetName: '',
-            timestamp: d.timestamp,
-            services: d.services,
-            anomalies: d.anomalies,
-            notes: d.notes,
-            photos: d.photos,
-            internalComments: d.internal_comments,
-            technicianSignature: d.technician_signature,
-            technicianSignatureImage: d.technician_signature_img,
-            clientSignature: d.client_signature,
-            clientSignatureImage: d.client_signature_img,
-            updatedAt: d.updated_at
-          }));
-          setInterventions(mappedInt);
-        }
-
-        // 3. SESSIONS
-        // Admin: Tutto. Tecnico: Solo OPEN o recenti
-        let sessQuery = client.from('work_sessions').select('*');
-        if (!isAdminOrOffice) {
-          // Scarica solo sessioni APERTE oppure CHIUSE di recente
-          // Nota: In Supabase 'or' filters sono complessi, per semplicità scarichiamo quelle degli ultimi 45gg
-          const dateLimit = new Date();
-          dateLimit.setDate(dateLimit.getDate() - 45);
-          sessQuery = sessQuery.gte('updated_at', dateLimit.toISOString());
-        }
-
-        const { data: sessData } = await sessQuery;
-        if (sessData) {
-          const mappedSess: WorkSession[] = sessData.map((d: any) => ({
-            id: d.id,
-            clientId: d.client_id,
-            startTimestamp: d.start_timestamp,
-            status: d.statustext as any,
-            scheduledDate: d.scheduled_date,
-            assignedTechIds: d.assigned_tech_ids,
-            assignedTechName: d.assigned_tech_name,
-            generalNotes: d.general_notes,
-            technicianSignature: d.tech_signature,
-            technicianSignatureImage: d.tech_signature_img,
-            clientSignature: d.client_signature,
-            clientSignatureImage: d.client_signature_img,
-            draftInterventions: [],
-            interventionIds: d.intervention_ids || [],
-            updatedAt: d.updated_at
-          }));
-          // Merge intelligente per non sovrascrivere sessioni locali non syncate che potrebbero essere più nuove?
-          // Per ora overwrite come da logica originale, assumendo cloud come source of truth per il download
-          setSessions(mappedSess);
-        }
-
-        // 4. QUOTATIONS
-        const { data: quotData } = await client.from('quotations').select('*');
-        if (quotData) {
-          const mappedQuot: Quotation[] = quotData.map((d: any) => ({
-            id: d.id,
-            number: d.number,
-            type: d.type,
-            category: d.category,
-            clientId: d.client_id,
-            clientName: '',
-            title: '',
-            description: '',
-            items: d.items,
-            amount: d.amount,
-            status: d.status,
-            date: d.date,
-            expiryDate: d.expiry_date,
-            notes: d.notes,
-            updatedAt: d.updated_at
-          }));
-          setQuotations(mappedQuot);
-        }
-
-        // 5. ATTENDANCE
-        const { data: attData } = await client.from('attendance_history').select('*');
-        if (attData) {
-          const mappedAtt: AttendanceRecord[] = attData.map((d: any) => ({
-            id: d.id,
-            userId: d.user_id,
-            userName: d.user_name,
-            type: d.type,
-            status: d.status,
-            timestamp: d.timestamp,
-            latitude: d.latitude,
-            longitude: d.longitude,
-            notes: d.notes,
-            approvedBy: d.approved_by,
-            approvalTimestamp: d.approval_timestamp,
-            synced: true
-          }));
-          setAttendanceHistory(mappedAtt);
-        }
-
-        // 6. ARTICLES
-        const { data: artData } = await client.from('articles').select('*');
-        if (artData) {
-          const mappedArt: Article[] = artData.map((d: any) => ({
-            id: d.id,
-            categoria: d.categoria,
-            descrizione: d.descrizione,
-            note: d.note,
-            updatedAt: d.updated_at
-          }));
-          setArticles(mappedArt);
-        }
-
-        // 7. TECHNICIANS (from profiles table)
-        const { data: techData } = await client.from('profiles').select('*');
-        if (techData) {
-          const mappedTech: Technician[] = techData.map((d: any, index: number) => ({
-            id: d.id,
-            name: d.full_name || d.email.split('@')[0],
-            email: d.email,
-            color: ['#2563eb', '#16a34a', '#dc2626', '#9333ea', '#ea580c', '#0d9488', '#0891b2', '#db2777', '#4f46e5', '#65a30d', '#d97706', '#059669', '#c026d3'][index % 13]
-          }));
-          setTechnicians(mappedTech);
-        }
-
-        await refreshClients();
-        return { success: true, message: `Download completato (${userRole})` };
-      } catch (error: any) {
-        console.error("Download Error", error);
-        return { success: false, message: error.message || "Errore download" };
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    getOpenSession: (clientId: number) => sessions.find(s => s.clientId === clientId && s.status === 'OPEN'),
-    createSession: (clientId: number) => {
-      const timestamp = getTimestamp();
-      const newSession: WorkSession = {
-        id: `SESS-${Date.now()}`, clientId, startTimestamp: timestamp, status: 'OPEN',
-        generalNotes: '', technicianSignature: '', technicianSignatureImage: '', clientSignature: '', clientSignatureImage: '',
-        draftInterventions: [], interventionIds: [], updatedAt: timestamp
-      };
-      setSessions(prev => [...prev, newSession]);
-      return newSession;
-    },
-    scheduleSession: (clientId: number, date: string, techIds: string[]) => {
-      const newSession: WorkSession = {
-        id: `PLAN-${Date.now()}`, clientId, startTimestamp: '', status: 'PLANNED', scheduledDate: date,
-        assignedTechIds: techIds, assignedTechName: '', generalNotes: '', technicianSignature: '', technicianSignatureImage: '', clientSignature: '', clientSignatureImage: '',
-        draftInterventions: [], interventionIds: [], updatedAt: getTimestamp()
-      };
-      setSessions(prev => [...prev, newSession]);
-    },
-    updateSession: (clientId: number, data: Partial<WorkSession>) => setSessions(prev => prev.map(s => s.clientId === clientId && s.status === 'OPEN' ? { ...s, ...data, updatedAt: getTimestamp() } : s)),
-    updatePlannedSession: (sessionId: string, date: string, techIds: string[]) => setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, scheduledDate: date, assignedTechIds: techIds, updatedAt: getTimestamp() } : s)),
-    saveInterventionToSession: (sessionId: string, intervention: Intervention, metadata?: Partial<WorkSession>) => {
-      setSessions(prev => prev.map(s => {
-        if (s.id === sessionId) {
-          const drafts = [...s.draftInterventions];
-          const idx = drafts.findIndex(i => i.assetId === intervention.assetId);
-          if (idx >= 0) drafts[idx] = intervention; else drafts.push(intervention);
-          return { ...s, ...metadata, draftInterventions: drafts, updatedAt: getTimestamp() };
-        }
-        return s;
-      }));
-    },
-    closeSession: (sessionId: string, finalMetadata?: Partial<WorkSession>) => {
-      setSessions(prev => prev.map(s => {
-        if (s.id === sessionId) {
-          return { ...s, ...finalMetadata, status: 'CLOSED' as const, updatedAt: getTimestamp() };
-        }
-        return s;
-      }));
-      const session = sessions.find(s => s.id === sessionId);
-      if (session) setInterventions(prev => [...session.draftInterventions, ...prev]);
-    },
+    downloadCloudData,
+    getOpenSession,
+    createSession,
+    scheduleSession,
+    updateSession,
+    updatePlannedSession,
+    saveInterventionToSession,
+    closeSession,
     reopenSession: (clientId: number) => { },
     deleteSession: (sessionId: string) => setSessions(prev => prev.filter(s => s.id !== sessionId)),
     addIntervention: (i: Intervention) => setInterventions(p => [{ ...i, updatedAt: getTimestamp() }, ...p]),
     addInterventionsBulk: (list: Intervention[]) => setInterventions(p => [...list, ...p]),
-    addClient: (c: Client) => addClientCtx(c),
-    updateClient: (c: Client) => updateClientCtx(c),
-    addClientsBulk: (list: any[]) => addClientsBulkCtx(list),
-    deleteClient: (id: number) => deleteClientCtx(id),
+    addClient: addClientCtx,
+    updateClient: updateClientCtx,
+    addClientsBulk: addClientsBulkCtx,
+    deleteClient: deleteClientCtx,
     addArticle: (a: Article) => setArticles(p => [...p, a]),
     addArticlesBulk: (list: Article[]) => setArticles(p => [...p, ...list]),
     deleteArticle: (id: string) => setArticles(p => p.filter(a => a.id !== id)),
@@ -508,7 +506,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     deleteQuotation: (id: string) => setQuotations(p => p.filter(q => q.id !== id)),
     exportData: () => { },
     importData: (json: string) => true
-  }), [clients, articles, assets, interventions, sessions, quotations, isLoading, attendanceHistory, addClientCtx, updateClientCtx, addClientsBulkCtx, deleteClientCtx, refreshClients, safeSync, syncData]);
+  }), [
+    clients, articles, assets, services, anomalies, checklistTemplates, categoryAnomalies, interventions, notifications, sessions, technicians, attendanceHistory, quotations, isLoading,
+    userNotes, userSignature, remoteUrl, supabaseConfig, syncData, downloadCloudData, getOpenSession, createSession, scheduleSession, updateSession, updatePlannedSession, saveInterventionToSession, closeSession,
+    addClientCtx, updateClientCtx, addClientsBulkCtx, deleteClientCtx
+  ]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };
