@@ -440,6 +440,32 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updateSession = useCallback((clientId: number, data: Partial<WorkSession>) => setSessions(prev => prev.map(s => s.clientId === clientId && s.status === 'OPEN' ? { ...s, ...data, updatedAt: getTimestamp() } : s)), []);
   const updatePlannedSession = useCallback((sessionId: string, date: string, techIds: string[]) => setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, scheduledDate: date, assignedTechIds: techIds, updatedAt: getTimestamp() } : s)), []);
 
+  const addAssetsBulk = useCallback(async (newAssets: Asset[]) => {
+    setAssets(prev => [...prev, ...newAssets]);
+    if (globalSupabase && newAssets.length > 0) {
+      const payloads = newAssets.map(asset => ({
+        id: asset.id,
+        client_id: asset.clientId,
+        type: asset.tipo,
+        location: asset.ubicazione,
+        scadenza: asset.scadenza,
+        notes: asset.note,
+        json_content: asset
+      }));
+
+      // BATCHING (max 500 rows per request)
+      const BATCH_SIZE = 500;
+      for (let i = 0; i < payloads.length; i += BATCH_SIZE) {
+        const batch = payloads.slice(i, i + BATCH_SIZE);
+        const { error } = await globalSupabase.from('assets').upsert(batch);
+        if (error) {
+          console.error(`Asset Batch starting at ${i} failed:`, error);
+          throw new Error(`Errore caricamento presidi blocco ${i / BATCH_SIZE + 1}: ${error.message}`);
+        }
+      }
+    }
+  }, []);
+
   const saveInterventionToSession = useCallback((sessionId: string, intervention: Intervention, metadata?: Partial<WorkSession>) => {
     setSessions(prev => prev.map(s => {
       if (s.id === sessionId) {
