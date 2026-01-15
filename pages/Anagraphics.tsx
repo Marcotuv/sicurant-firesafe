@@ -40,6 +40,7 @@ const TAB_LABELS: Record<Tab, string> = {
 };
 
 const Anagraphics: React.FC = () => {
+    console.log("SICURANT System v2.6 - Asset Import Fixes applied");
     const { profile } = useAuth();
     const navigate = useNavigate();
     const {
@@ -289,16 +290,16 @@ const Anagraphics: React.FC = () => {
     };
 
     const inputClass = (name: string) => `w-full p-2 border rounded text-sm outline-none transition-colors ${validationErrors[name] ? 'border-red-500 bg-red-50 text-red-900' : 'border-gray-300 bg-white dark:bg-slate-700 dark:border-slate-600 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500'}`;
-    const handleAssetImportClick = () => assetFileInputRef.current?.click();
-
-    const handleAssetFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImportClick = () => fileInputRef.current?.click();
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file || !selectedClientForInventory) return;
+        if (!file) return;
 
         const reader = new FileReader();
         reader.onload = async (event) => {
             try {
                 const text = (event.target?.result as string) || "";
+                // Rimuovi BOM se presente (carattere invisibile all'inizio di alcuni file Excel/CSV)
                 const cleanText = text.replace(/^\ufeff/g, '');
                 const lines = cleanText.split(/\r?\n/).filter(l => l.trim());
 
@@ -307,9 +308,113 @@ const Anagraphics: React.FC = () => {
                     return;
                 }
 
+                // Rileva separatore (punto e virgola o virgola)
                 const firstLine = lines[0];
                 const sep = firstLine.includes(';') ? ';' : ',';
-                console.log(`[Asset Import] Separatore rilevato: "${sep}"`);
+                console.log(`[Import] Separatore rilevato: "${sep}"`);
+
+                const parseLine = (l: string) => {
+                    // Regex robusta per CSV che ignora i separatori dentro le virgolette (es: "Via Roma, 1")
+                    // Utilizza il separatore rilevato dinamicamente
+                    const regex = new RegExp(`${sep}(?=(?:(?:[^"]*"){2})*[^"]*$)`);
+                    return l.split(regex).map(v => v.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
+                };
+
+                const headers = parseLine(firstLine).map(h => h.toLowerCase());
+                console.log("[Import] Intestazioni trovate:", headers);
+
+                const importedClients: any[] = lines.slice(1).map((line, rowIdx) => {
+                    const values = parseLine(line);
+                    const c: any = { id: Date.now() + rowIdx };
+
+                    if (values.length < 2) {
+                        console.warn(`[Import] Riga ${rowIdx + 2} saltata: troppo corta.`);
+                        return c;
+                    }
+
+                    headers.forEach((h, i) => {
+                        const v = values[i];
+                        if (!v) return;
+
+                        // Mapping flessibile ITA/ENG per massima compatibilità
+                        if (h.includes('ragione') || h.includes('nome') || h.includes('company') || h.includes('customer')) c.nome = v;
+                        else if ((h.includes('indirizzo') || h.includes('sede') || h.includes('address')) && !h.includes('struttura')) c.indirizzo = v;
+                        else if (h.includes('piva') || h.includes('p.iva') || h.includes('vat') || h.includes('tax')) c.piva = v;
+                        else if (h.includes('sdi') || h.includes('univoco')) c.codiceUnivoco = v;
+                        else if (h.includes('pec')) c.pec = v;
+                        else if (h.includes('referente') && (h.includes('amm') || h.includes('contatto') || h.includes('admin'))) c.referente = v;
+                        else if (h.includes('telefono') || h.includes('cell') || h.includes('phone') || h.includes('tel')) c.telefono = v;
+                        else if (h.includes('email') || h.includes('mail')) c.email = v;
+                        else if (h.includes('pagamento') || h.includes('payment')) c.pagamento = v;
+                        else if (h.includes('note')) c.note = v;
+                        else if (h.includes('commessa') || h.includes('job')) c.commessa = v;
+                        else if (h.includes('contratto') || h.includes('contract')) c.idCommessa = v;
+                        else if (h.includes('struttura') || h.includes('building') || h.includes('site')) {
+                            if (h.includes('indirizzo') || h.includes('address')) c.indirizzoStruttura = v;
+                            else if (h.includes('id')) c.idStruttura = v;
+                            else c.struttura = v;
+                        }
+                        else if (h.includes('loco') || h.includes('referente')) {
+                            if (h.includes('tel') || h.includes('recapito') || h.includes('phone')) c.recapitoCommessa = v;
+                            else if (h.includes('nome') || h.includes('name')) c.referenteCommessa = v;
+                        }
+                    });
+                    return c;
+                }).filter(c => c.nome && c.indirizzo);
+
+                if (importedClients.length > 0) {
+                    try {
+                        console.log(`[Import] Tentativo di importazione di ${importedClients.length} clienti...`);
+                        await addClientsBulk(importedClients);
+                        alert(`✅ Importazione completata con successo!\n\nRighe lette: ${lines.length - 1}\nClienti validi importati: ${importedClients.length}\n\nNota: i clienti senza Nome o Indirizzo sono stati ignorati.`);
+                    } catch (err: any) {
+                        console.error("Sync Error", err);
+                        alert(`❌ Errore durante il caricamento:\n${err.message || 'Errore di connessione o formato dati.'}\n\nPossibile causa: Il file potrebbe contenere caratteri speciali non supportati o il database è temporaneamente occupato.`);
+                    }
+                } else {
+                    alert('⚠️ Nessun dato valido trovato.\n\nAssicurati che:\n1. Le colonne "Ragione Sociale" e "Indirizzo" siano presenti nella prima riga.\n2. Almeno queste due colonne siano compilate per ogni riga.\n3. Il separatore (virgola o punto e virgola) sia coerente.');
+                }
+            } catch (err: any) {
+                console.error("Import Parser Error", err);
+                alert('Errore durante la lettura del file: ' + err.message);
+            }
+            e.target.value = ''; // Reset per permettere ricaricamento dello stesso file
+        };
+        reader.onerror = () => alert("Errore hardware o di sistema durante la lettura del file.");
+        reader.readAsText(file);
+    };
+
+    const handleAssetImportClick = () => assetFileInputRef.current?.click();
+
+    const handleAssetFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        console.log("[Asset Import] File selected:", file?.name);
+
+        if (!selectedClientForInventory) {
+            console.error("[Asset Import] No client selected!");
+            alert("Errore interno: Nessun cliente selezionato per l'importazione.");
+            return;
+        }
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                const text = (event.target?.result as string) || "";
+                console.log("[Asset Import] File loaded, length:", text.length);
+
+                const cleanText = text.replace(/^\ufeff/g, '');
+                const lines = cleanText.split(/\r?\n/).filter(l => l.trim());
+                console.log("[Asset Import] Lines found:", lines.length);
+
+                if (lines.length < 2) {
+                    alert("Il file sembra vuoto o contiene solo l'intestazione.");
+                    return;
+                }
+
+                const firstLine = lines[0];
+                const sep = firstLine.includes(';') ? ';' : ',';
+                console.log(`[Asset Import] Separator detected: "${sep}"`);
 
                 const parseLine = (l: string) => {
                     const regex = new RegExp(`${sep}(?=(?:(?:[^"]*"){2})*[^"]*$)`);
@@ -317,6 +422,8 @@ const Anagraphics: React.FC = () => {
                 };
 
                 const headers = parseLine(firstLine).map(h => h.toLowerCase());
+                console.log("[Asset Import] Headers found:", headers);
+
                 const importedAssets: Asset[] = lines.slice(1).map((line, rowIdx) => {
                     const values = parseLine(line);
                     const a: Partial<Asset> = {
@@ -337,14 +444,15 @@ const Anagraphics: React.FC = () => {
                         else if (h.includes('scadenza')) a.scadenza = v;
                         else if (h.includes('note')) a.note = v;
                         else if (h.includes('categoria')) a.categoria = v;
-                        // Mappatura extra per "Revisione", "Collaudo" etc se necessario in futuro
                     });
 
-                    // Default se manca il tipo
                     if (!a.tipo) a.tipo = 'Presidio Generico';
 
                     return a as Asset;
                 }).filter((a): a is Asset => a !== null && !!a.tipo);
+
+                console.log("[Asset Import] Parsed Assets count:", importedAssets.length);
+                if (importedAssets.length > 0) console.log("[Asset Import] Sample Import:", importedAssets[0]);
 
                 if (importedAssets.length > 0) {
                     if (confirm(`Trovati ${importedAssets.length} presidi validi per ${selectedClientForInventory.nome}.\nProcedere all'importazione?`)) {
@@ -357,7 +465,8 @@ const Anagraphics: React.FC = () => {
                         }
                     }
                 } else {
-                    alert("Nessun presidio valido trovato nel file. Controlla le colonne (Tipo, Matricola, Ubicazione).");
+                    console.warn("[Asset Import] No valid assets found. Headers might be mismatching.");
+                    alert(`Nessun presidio valido trovato.\nIntestazioni rilevate: ${headers.join(', ')}\n\nAssicurati di avere colonne come "Tipo" (o Descrizione), "Matricola", "Ubicazione".`);
                 }
             } catch (err: any) {
                 console.error("Asset Parser Error", err);
