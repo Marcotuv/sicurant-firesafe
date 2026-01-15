@@ -3,7 +3,7 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../config/supabase';
-import { Database, Plus, Trash2, Edit, X, Save, Upload, Package, MapPin, CreditCard, User, Briefcase, Building, ChevronDown, Lock, AlertCircle } from 'lucide-react';
+import { Database, Plus, Trash2, Edit, X, Save, Upload, Package, MapPin, CreditCard, User, Briefcase, Building, ChevronDown, Lock, AlertCircle, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Client, Asset, Article } from '../types';
 import { PAYMENT_METHODS } from '../lib/constants';
@@ -71,6 +71,7 @@ const Anagraphics: React.FC = () => {
     const [isSimpleModalOpen, setIsSimpleModalOpen] = useState(false);
     const [simpleModalType, setSimpleModalType] = useState<'service' | 'anomaly'>('service');
     const [selectedCategory, setSelectedCategory] = useState('');
+    const [globalSearchTerm, setGlobalSearchTerm] = useState('');
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -91,6 +92,67 @@ const Anagraphics: React.FC = () => {
 
         return list.slice(0, 50);
     }, [articles, newInventoryAsset.tipo, isInventoryTypeDropdownOpen]);
+
+    const displayClients = useMemo(() => {
+        if (!globalSearchTerm) return clients;
+        const term = globalSearchTerm.toLowerCase();
+        return clients.filter(c =>
+            c.nome.toLowerCase().includes(term) ||
+            c.indirizzo.toLowerCase().includes(term) ||
+            (c.piva && c.piva.toLowerCase().includes(term)) ||
+            (c.email && c.email.toLowerCase().includes(term))
+        );
+    }, [clients, globalSearchTerm]);
+
+    const displayArticles = useMemo(() => {
+        if (!globalSearchTerm) return articles;
+        const term = globalSearchTerm.toLowerCase();
+        return articles.filter(a =>
+            a.descrizione.toLowerCase().includes(term) ||
+            a.categoria.toLowerCase().includes(term) ||
+            a.id.toLowerCase().includes(term)
+        );
+    }, [articles, globalSearchTerm]);
+
+    const displayServices = useMemo(() => {
+        if (!globalSearchTerm) return checklistTemplates;
+        const term = globalSearchTerm.toLowerCase();
+        const filtered: Record<string, string[]> = {};
+
+        Object.entries(checklistTemplates).forEach(([category, items]) => {
+            const matchesCategory = category.toLowerCase().includes(term);
+            const filteredItems = (items as string[]).filter(i => i.toLowerCase().includes(term));
+
+            if (matchesCategory || filteredItems.length > 0) {
+                filtered[category] = matchesCategory ? (items as string[]) : filteredItems;
+            }
+        });
+
+        return filtered;
+    }, [checklistTemplates, globalSearchTerm]);
+
+    const displayGenericAnomalies = useMemo(() => {
+        if (!globalSearchTerm) return anomalies;
+        const term = globalSearchTerm.toLowerCase();
+        return anomalies.filter(a => a.toLowerCase().includes(term));
+    }, [anomalies, globalSearchTerm]);
+
+    const displayAnomalies = useMemo(() => {
+        if (!globalSearchTerm) return categoryAnomalies;
+        const term = globalSearchTerm.toLowerCase();
+        const filtered: Record<string, string[]> = {};
+
+        Object.entries(categoryAnomalies).forEach(([category, items]) => {
+            const matchesCategory = category.toLowerCase().includes(term);
+            const filteredItems = (items as string[]).filter(i => i.toLowerCase().includes(term));
+
+            if (matchesCategory || filteredItems.length > 0) {
+                filtered[category] = matchesCategory ? (items as string[]) : filteredItems;
+            }
+        });
+
+        return filtered;
+    }, [categoryAnomalies, globalSearchTerm]);
 
     // 4. EFFECTS
     useEffect(() => {
@@ -330,26 +392,50 @@ const Anagraphics: React.FC = () => {
             </div>
             <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
 
-            <div className="flex space-x-2 border-b border-gray-200 dark:border-slate-700 overflow-x-auto">
-                {['clients', 'articles', 'services', 'anomalies'].map(t => (
-                    <button key={t} onClick={() => setActiveTab(t as Tab)} className={`px-6 py-3 border-b-2 font-medium whitespace-nowrap ${activeTab === t ? 'border-primary-600 text-primary-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
-                        {TAB_LABELS[t as Tab]}
-                    </button>
-                ))}
+            <div className="flex flex-col sm:flex-row gap-4 items-center bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
+                <div className="relative flex-1 w-full">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <input
+                        type="text"
+                        placeholder={`Cerca nei ${TAB_LABELS[activeTab].toLowerCase()}...`}
+                        className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500 transition-all text-sm"
+                        value={globalSearchTerm}
+                        onChange={(e) => setGlobalSearchTerm(e.target.value)}
+                    />
+                    {globalSearchTerm && (
+                        <button
+                            onClick={() => setGlobalSearchTerm('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                        >
+                            <X size={14} />
+                        </button>
+                    )}
+                </div>
+                <div className="flex space-x-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
+                    {['clients', 'articles', 'services', 'anomalies'].map(t => (
+                        <button
+                            key={t}
+                            onClick={() => { setActiveTab(t as Tab); setGlobalSearchTerm(''); }}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${activeTab === t ? 'bg-primary-600 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700'}`}
+                        >
+                            {TAB_LABELS[t as Tab]}
+                        </button>
+                    ))}
+                </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow min-h-[400px] p-6">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg min-h-[400px] border border-gray-100 dark:border-slate-700 overflow-hidden">
                 {activeTab === 'clients' && (
-                    <div className="space-y-4 animate-fade-in">
-                        <div className="flex justify-between items-center">
-                            <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200">Clienti</h3>
+                    <div className="p-6 space-y-4 animate-fade-in">
+                        <div className="flex justify-between items-center bg-gray-50 dark:bg-slate-900/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700 mb-2">
+                            <h3 className="font-black text-lg text-gray-800 dark:text-gray-200 uppercase tracking-tight">Elenco Clienti <span className="text-primary-500 text-sm ml-2 font-medium">({displayClients.length})</span></h3>
                             <div className="flex gap-2">
-                                <button onClick={handleImportClick} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm flex items-center shadow-sm"><Upload size={16} className="mr-2" /> Importa</button>
-                                <button onClick={() => handleOpenClientModal()} className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded text-sm flex items-center shadow-sm"><Plus size={16} className="mr-2" /> Nuovo</button>
+                                <button onClick={handleImportClick} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center shadow-lg transition-transform active:scale-95"><Upload size={16} className="mr-2" /> Importa</button>
+                                <button onClick={() => handleOpenClientModal()} className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center shadow-lg transition-transform active:scale-95"><Plus size={16} className="mr-2" /> Nuovo</button>
                             </div>
                         </div>
                         <div className="grid gap-4">
-                            {clients.map(c => (
+                            {displayClients.map(c => (
                                 <div key={c.id} className="p-4 border border-gray-200 dark:border-slate-700 rounded bg-gray-50 dark:bg-slate-900 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                     <div><h4 className="font-bold text-gray-800 dark:text-gray-100">{c.nome}</h4><p className="text-sm text-gray-500 dark:text-gray-400">{c.indirizzo}</p></div>
                                     <div className="flex gap-2 w-full sm:w-auto">
@@ -390,7 +476,7 @@ const Anagraphics: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-                                    {articles.map(a => (
+                                    {displayArticles.map(a => (
                                         <tr key={a.id} className="hover:bg-primary-50/30 dark:hover:bg-slate-700/30 transition-colors group">
                                             <td className="p-4 font-mono text-primary-600 dark:text-blue-400 font-bold">{a.id}</td>
                                             <td className="p-4">
@@ -417,10 +503,10 @@ const Anagraphics: React.FC = () => {
                                             </td>
                                         </tr>
                                     ))}
-                                    {articles.length === 0 && (
+                                    {displayArticles.length === 0 && (
                                         <tr>
                                             <td colSpan={6} className="p-10 text-center text-gray-400 italic">
-                                                Nessun articolo in anagrafica. Comincia cliccando "Nuovo Articolo".
+                                                Nessun articolo trovato. prova a cambiare i termini di ricerca.
                                             </td>
                                         </tr>
                                     )}
@@ -432,13 +518,13 @@ const Anagraphics: React.FC = () => {
 
                 {/* Services Tabs */}
                 {activeTab === 'services' && (
-                    <div className="space-y-6 animate-fade-in">
+                    <div className="p-6 space-y-6 animate-fade-in">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200">Checklist Operative</h3>
-                            <p className="text-sm text-gray-500">Gestione normative (Richiede permesso Admin per cancellazione).</p>
+                            <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200 uppercase tracking-tight">Checklist Operative</h3>
+                            <p className="text-xs text-gray-500 font-medium">Gestione normative (Richiede permesso Admin per cancellazione).</p>
                         </div>
                         <div className="grid grid-cols-1 gap-6">
-                            {Object.entries(checklistTemplates).map(([category, items]) => (
+                            {Object.entries(displayServices).map(([category, items]) => (
                                 <div key={category} className="border border-gray-200 dark:border-slate-700 rounded-lg bg-gray-50 dark:bg-slate-900 overflow-hidden">
                                     <div className="bg-gray-100 dark:bg-slate-800 p-3 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center">
                                         <h4 className="font-bold text-primary-700 dark:text-blue-400">{category}</h4>
@@ -466,33 +552,42 @@ const Anagraphics: React.FC = () => {
 
                 {/* Anomalies Tab */}
                 {activeTab === 'anomalies' && (
-                    <div className="space-y-6 animate-fade-in">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200">Anomalie Ricorrenti</h3>
-                        </div>
-                        {/* Generic */}
-                        <div className="border border-gray-200 dark:border-slate-700 rounded-lg bg-gray-50 dark:bg-slate-900 overflow-hidden mb-6">
-                            <div className="bg-gray-200 dark:bg-slate-800 p-3 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center">
-                                <h4 className="font-bold text-gray-800 dark:text-gray-100">Anomalie Generiche</h4>
-                                <button onClick={() => openSimpleModal('anomaly', '')} className="text-xs bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 px-3 py-1 rounded hover:bg-gray-50 dark:hover:bg-slate-600 flex items-center">
-                                    <Plus size={12} className="mr-1" /> Aggiungi
-                                </button>
+                    <div className="p-6 space-y-6 animate-fade-in">
+                        <div className="flex justify-between items-center bg-red-50 dark:bg-red-900/10 p-4 rounded-xl border border-red-100 dark:border-red-900/20">
+                            <div>
+                                <h3 className="font-black text-lg text-red-600 dark:text-red-400 uppercase tracking-tighter italic">Database Anomalie</h3>
+                                <p className="text-xs text-red-500/80 font-medium tracking-tight">Voci selezionabili durante le ispezioni tecniche per segnalare difformità.</p>
                             </div>
-                            <div className="p-3 grid grid-cols-1 md:grid-cols-2 gap-2">
-                                {anomalies.map((item, i) => (
-                                    <div key={i} className="flex justify-between items-center p-2 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded text-sm group">
-                                        <span className="text-gray-700 dark:text-gray-300 mr-2">{item}</span>
-                                        {canDelete && (
-                                            <button onClick={() => removeAnomalyItem('', item)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={14} /></button>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
+                            <button onClick={() => openSimpleModal('anomaly')} className="bg-red-500 hover:bg-red-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center shadow-lg transition-all active:scale-95">
+                                <Plus size={18} className="mr-2" /> Nuova Anomalia
+                            </button>
                         </div>
+
+                        {/* Generic Anomalies */}
+                        {displayGenericAnomalies.length > 0 && (
+                            <div className="border border-gray-200 dark:border-slate-700 rounded-lg bg-gray-50 dark:bg-slate-900 overflow-hidden mb-6">
+                                <div className="bg-gray-200 dark:bg-slate-800 p-3 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center">
+                                    <h4 className="font-bold text-gray-800 dark:text-gray-100">Anomalie Generiche</h4>
+                                    <button onClick={() => openSimpleModal('anomaly', '')} className="text-xs bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 px-3 py-1 rounded hover:bg-gray-50 dark:hover:bg-slate-600 flex items-center">
+                                        <Plus size={12} className="mr-1" /> Aggiungi
+                                    </button>
+                                </div>
+                                <div className="p-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    {displayGenericAnomalies.map((item, i) => (
+                                        <div key={i} className="flex justify-between items-center p-2 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded text-sm group">
+                                            <span className="text-gray-700 dark:text-gray-300 mr-2">{item}</span>
+                                            {canDelete && (
+                                                <button onClick={() => removeAnomalyItem('', item)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={14} /></button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Category Specific */}
                         <div className="grid grid-cols-1 gap-6">
-                            {Object.entries(categoryAnomalies).map(([category, items]) => (
+                            {Object.entries(displayAnomalies).map(([category, items]) => (
                                 <div key={category} className="border border-gray-200 dark:border-slate-700 rounded-lg bg-gray-50 dark:bg-slate-900 overflow-hidden">
                                     <div className="bg-gray-100 dark:bg-slate-800 p-3 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center">
                                         <h4 className="font-bold text-red-600 dark:text-red-400">{category}</h4>
