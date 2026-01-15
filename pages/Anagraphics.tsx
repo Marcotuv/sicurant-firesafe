@@ -3,7 +3,7 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../config/supabase';
-import { Database, Plus, Trash2, Edit, X, Save, Upload, Package, MapPin, CreditCard, User, Briefcase, Building, ChevronDown, Lock, AlertCircle, Search } from 'lucide-react';
+import { Database, Plus, Trash2, Edit, X, Save, Upload, Package, MapPin, CreditCard, User, Briefcase, Building, ChevronDown, Lock, AlertCircle, Search, Copy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Client, Asset, Article } from '../types';
 import { PAYMENT_METHODS } from '../lib/constants';
@@ -101,6 +101,10 @@ const Anagraphics: React.FC = () => {
         return clients.filter(c =>
             c.nome.toLowerCase().includes(term) ||
             c.indirizzo.toLowerCase().includes(term) ||
+            (c.commessa && c.commessa.toLowerCase().includes(term)) ||
+            (c.struttura && c.struttura.toLowerCase().includes(term)) ||
+            (c.idCommessa && c.idCommessa.toLowerCase().includes(term)) ||
+            (c.indirizzoStruttura && c.indirizzoStruttura.toLowerCase().includes(term)) ||
             (c.piva && c.piva.toLowerCase().includes(term)) ||
             (c.email && c.email.toLowerCase().includes(term))
         );
@@ -249,6 +253,15 @@ const Anagraphics: React.FC = () => {
     const handleSaveArticle = () => { if (!newArticle.descrizione) { alert("Descrizione obbligatoria"); return; } addArticle({ ...newArticle, id: newArticle.id || `ART-${Date.now()}` } as Article); setIsArticleModalOpen(false); };
     const handleOpenInventoryModal = (client: Client) => { setSelectedClientForInventory(client); setNewInventoryAsset({ tipo: '', matricola: '', ubicazione: '', scadenza: '', categoria: '' }); setIsInventoryModalOpen(true); };
     const handleSaveInventoryAsset = () => { if (!newInventoryAsset.tipo) return; addAsset({ ...newInventoryAsset, id: newInventoryAsset.id || `A-${Date.now()}`, clientId: selectedClientForInventory!.id } as Asset); setNewInventoryAsset({}); };
+
+    const handleDuplicateClient = (client: Client) => {
+        const { id, ...rest } = client;
+        // Pre-fill new client state. Data is cloned but commission fields are reset/blanked 
+        // to encourage explicit entry for the new commission, while keeping main company data.
+        setNewClient({ ...rest, idCommessa: '', struttura: '', indirizzoStruttura: '' });
+        setEditingClientId(null);
+        setIsClientModalOpen(true);
+    };
 
     const openSimpleModal = (t: 'service' | 'anomaly', category: string = '') => {
         setSimpleModalType(t);
@@ -533,12 +546,23 @@ const Anagraphics: React.FC = () => {
                         <div className="grid gap-4">
                             {displayClients.map(c => (
                                 <div key={c.id} className="p-4 border border-gray-200 dark:border-slate-700 rounded bg-gray-50 dark:bg-slate-900 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                                    <div><h4 className="font-bold text-gray-800 dark:text-gray-100">{c.nome}</h4><p className="text-sm text-gray-500 dark:text-gray-400">{c.indirizzo}</p></div>
+                                    <div className="flex-1">
+                                        <h4 className="font-bold text-gray-800 dark:text-gray-100">{c.nome}</h4>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">{c.indirizzo}</p>
+                                        {(c.commessa || c.idCommessa || c.struttura) && (
+                                            <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                                                {c.commessa && <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-mono border border-blue-200" title="Codice Commessa">{c.commessa}</span>}
+                                                {c.struttura && <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded font-bold border border-purple-200 flex items-center"><Building size={10} className="mr-1" /> {c.struttura}</span>}
+                                                {c.indirizzoStruttura && <span className="text-gray-400 flex items-center"><MapPin size={10} className="mr-1" /> {c.indirizzoStruttura}</span>}
+                                            </div>
+                                        )}
+                                    </div>
                                     <div className="flex gap-2 w-full sm:w-auto">
-                                        <button onClick={() => handleOpenInventoryModal(c)} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm flex-1 sm:flex-none flex justify-center"><Package size={16} /></button>
-                                        <button onClick={() => handleOpenClientModal(c)} className="p-2 border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-100 dark:hover:bg-slate-800 text-blue-500"><Edit size={16} /></button>
+                                        <button onClick={() => handleOpenInventoryModal(c)} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm flex-1 sm:flex-none flex justify-center" title="Gestisci Inventario"><Package size={16} /></button>
+                                        <button onClick={() => handleDuplicateClient(c)} className="p-2 border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-100 dark:hover:bg-slate-800 text-emerald-600" title="Duplica Anagrafica (Nuova Commessa)"><Copy size={16} /></button>
+                                        <button onClick={() => handleOpenClientModal(c)} className="p-2 border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-100 dark:hover:bg-slate-800 text-blue-500" title="Modifica"><Edit size={16} /></button>
                                         {canDelete && (
-                                            <button onClick={() => deleteClient(c.id)} className="p-2 border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-100 dark:hover:bg-slate-800 text-red-500"><Trash2 size={16} /></button>
+                                            <button onClick={() => deleteClient(c.id)} className="p-2 border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-100 dark:hover:bg-slate-800 text-red-500" title="Elimina"><Trash2 size={16} /></button>
                                         )}
                                     </div>
                                 </div>
@@ -861,8 +885,8 @@ const Anagraphics: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-6 bg-gray-50 dark:bg-slate-900 p-4 rounded border border-gray-200 dark:border-slate-700">
-                            <div className="relative">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-6 bg-gray-50 dark:bg-slate-900 p-4 rounded border border-gray-200 dark:border-slate-700">
+                            <div className="relative md:col-span-1">
                                 <input
                                     className="w-full p-2 pr-8 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 text-sm"
                                     placeholder="Tipo..."
@@ -888,7 +912,9 @@ const Anagraphics: React.FC = () => {
                             </div>
                             <input className="p-2 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 text-sm" placeholder="Matricola" value={newInventoryAsset.matricola || ''} onChange={e => setNewInventoryAsset({ ...newInventoryAsset, matricola: e.target.value })} />
                             <input className="p-2 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 text-sm" placeholder="Ubicazione" value={newInventoryAsset.ubicazione || ''} onChange={e => setNewInventoryAsset({ ...newInventoryAsset, ubicazione: e.target.value })} />
-                            <button onClick={handleSaveInventoryAsset} className="md:col-span-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded font-bold py-2 shadow-sm text-sm">Aggiungi Presidio</button>
+                            <input className="p-2 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 text-sm" placeholder="Scadenza (es. 2025-12)" value={newInventoryAsset.scadenza || ''} onChange={e => setNewInventoryAsset({ ...newInventoryAsset, scadenza: e.target.value })} />
+                            <input className="md:col-span-3 p-2 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 text-sm" placeholder="Note (opzionale)" value={newInventoryAsset.note || ''} onChange={e => setNewInventoryAsset({ ...newInventoryAsset, note: e.target.value })} />
+                            <button onClick={handleSaveInventoryAsset} className="bg-emerald-500 hover:bg-emerald-600 text-white rounded font-bold py-2 shadow-sm text-sm">Aggiungi</button>
                         </div>
 
                         <table className="w-full text-sm text-left border-collapse">
@@ -896,6 +922,8 @@ const Anagraphics: React.FC = () => {
                                 <th className="p-3 border-b dark:border-slate-600">Tipo</th>
                                 <th className="p-3 border-b dark:border-slate-600">Matricola</th>
                                 <th className="p-3 border-b dark:border-slate-600">Ubicazione</th>
+                                <th className="p-3 border-b dark:border-slate-600">Scadenza</th>
+                                <th className="p-3 border-b dark:border-slate-600">Note</th>
                                 <th className="p-3 border-b dark:border-slate-600 text-right">Azioni</th>
                             </tr></thead>
                             <tbody>
@@ -904,13 +932,15 @@ const Anagraphics: React.FC = () => {
                                         <td className="p-3 text-gray-800 dark:text-gray-200 font-medium">{a.tipo}</td>
                                         <td className="p-3 text-gray-600 dark:text-gray-400 font-mono">{a.matricola}</td>
                                         <td className="p-3 text-gray-600 dark:text-gray-400">{a.ubicazione}</td>
+                                        <td className="p-3 text-gray-600 dark:text-gray-400">{a.scadenza}</td>
+                                        <td className="p-3 text-gray-500 dark:text-gray-400 italic text-xs truncate max-w-[150px]">{a.note}</td>
                                         <td className="p-3 text-right">
                                             {canDelete && <button onClick={() => deleteAsset(a.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button>}
                                         </td>
                                     </tr>
                                 ))}
                                 {assets.filter(a => a.clientId === selectedClientForInventory.id).length === 0 && (
-                                    <tr><td colSpan={4} className="p-6 text-center text-gray-400 italic">Nessun presidio registrato.</td></tr>
+                                    <tr><td colSpan={6} className="p-6 text-center text-gray-400 italic">Nessun presidio registrato.</td></tr>
                                 )}
                             </tbody>
                         </table>
