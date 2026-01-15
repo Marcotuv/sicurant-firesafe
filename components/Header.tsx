@@ -100,25 +100,8 @@ const Header: React.FC<HeaderProps> = ({ darkMode, toggleDarkMode }) => {
         </button>
 
         {/* Logo Sicur. Ant (SVG Inline) */}
-        <div className="bg-white p-1.5 rounded-full h-10 w-10 flex items-center justify-center overflow-hidden shrink-0 shadow-sm ring-2 ring-white/20">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="text-red-600 w-full h-full"
-          >
-            {/* Fire Extinguisher Icon */}
-            <path d="M15 6.5V3a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3.5" />
-            <path d="M9 18h6" />
-            <path d="M10 22h4" />
-            <path d="M12 22V6.5" />
-            <rect x="7" y="7" width="10" height="12" rx="2" />
-            <path d="M17 7l3-3" />
-          </svg>
+        <div className="bg-white p-0.5 rounded-full h-11 w-11 flex items-center justify-center overflow-hidden shrink-0 shadow-sm ring-2 ring-white/20">
+          <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
         </div>
         <h1 className="text-xl font-bold tracking-tight hidden sm:block">Sicur.Ant <span className="font-normal opacity-80 text-sm">Intranet</span></h1>
       </div>

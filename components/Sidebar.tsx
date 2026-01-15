@@ -37,7 +37,8 @@ const Sidebar: React.FC = () => {
 
   return (
     <aside className="w-64 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col h-full hidden md:flex shadow-sm z-10 transition-colors duration-300">
-      <div className="p-6 border-b border-gray-100 dark:border-slate-700">
+      <div className="p-6 border-b border-gray-100 dark:border-slate-700 flex flex-col items-center">
+        <img src="/logo.png" alt="Sicur.Ant Logo" className="w-24 h-24 object-contain mb-4" />
         <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Navigazione Rapida</h4>
       </div>
       <nav className="flex-1 overflow-y-auto py-4">

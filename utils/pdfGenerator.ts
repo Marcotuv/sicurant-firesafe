@@ -6,15 +6,23 @@ import { getLocalDate } from './dates';
 export const generateInterventionReport = (session: WorkSession, client: Client, interventions: Intervention[]) => {
     const doc = new jsPDF();
 
+    // --- LOGO ---
+    try {
+        doc.addImage('/logo.png', 'PNG', 14, 10, 30, 30);
+    } catch (e) {
+        console.error("Error adding logo to PDF:", e);
+    }
+
     // --- HEADER ---
     doc.setFontSize(20);
-    doc.setTextColor(40, 40, 40);
-    doc.text("SICURANT FireSafe", 14, 22);
+    doc.setTextColor(220, 53, 69); // Rosso Sicurant
+    doc.text("SICURANT FireSafe", 50, 22);
 
     doc.setFontSize(10);
-    doc.text("Via dell'Antincendio, 1 - 09100 Cagliari (CA)", 14, 28);
-    doc.text("P.IVA: 01234567890 - Tel: 070 123456", 14, 33);
-    doc.text("Email: info@sicurant.it", 14, 38);
+    doc.setTextColor(40, 40, 40);
+    doc.text("Via dell'Antincendio, 1 - 09100 Cagliari (CA)", 50, 28);
+    doc.text("P.IVA: 01234567890 - Tel: 070 123456", 50, 33);
+    doc.text("Email: info@sicurant.it", 50, 38);
 
     doc.setLineWidth(0.5);
     doc.line(14, 42, 196, 42);
@@ -26,7 +34,7 @@ export const generateInterventionReport = (session: WorkSession, client: Client,
     doc.setFontSize(10);
     doc.text(`Cliente: ${client.nome}`, 14, 60);
     doc.text(`Indirizzo: ${client.indirizzo}`, 14, 65);
-    doc.text(`Data Intervento: ${session.startTimestamp ? getLocalDate(session.startTimestamp) : 'N/D'}`, 14, 70);
+    doc.text(`Data Intervento: ${session.startTimestamp ? getLocalDate(new Date(session.startTimestamp)) : 'N/D'}`, 14, 70);
     doc.text(`Tecnico: ${session.assignedTechName || 'N/D'}`, 14, 75);
     doc.text(`Sessione ID: ${session.id}`, 130, 60);
 
@@ -116,5 +124,5 @@ export const generateInterventionReport = (session: WorkSession, client: Client,
     }
 
     // Save
-    doc.save(`Verbale_${client.nome.replace(/\s+/g, '_')}_${getLocalDate(session.startTimestamp || new Date().toISOString())}.pdf`);
+    doc.save(`Verbale_${client.nome.replace(/\s+/g, '_')}_${getLocalDate(new Date(session.startTimestamp || new Date().toISOString()))}.pdf`);
 };

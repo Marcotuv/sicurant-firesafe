@@ -660,12 +660,20 @@ const TechIntervention: React.FC = () => {
                 )}
 
                 <div className="bg-white p-8 shadow-lg print:shadow-none print:absolute print:top-0 print:left-0 print:w-full print:m-0 print:z-[100]" id="report">
-                    <div className="border-b-2 border-red-600 pb-4 mb-6 flex justify-between items-start">
-                        <div><h1 className="text-3xl font-bold text-gray-900">RAPPORTO INTERVENTO</h1><p className="text-gray-500">Sicur. Ant Antincendio</p></div>
+                    <div className="border-b-2 border-red-600 pb-4 mb-6 flex justify-between items-center px-2">
+                        <div className="flex items-center gap-4">
+                            <div className="w-20 h-20 bg-white rounded-xl overflow-hidden shadow-sm flex items-center justify-center p-1 border border-gray-100">
+                                <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+                            </div>
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-900 leading-tight">RAPPORTO INTERVENTO</h1>
+                                <p className="text-gray-500 font-medium tracking-wide">Sicur. Ant Antincendio</p>
+                            </div>
+                        </div>
                         <div className="text-right">
                             <p className="font-bold text-xl text-gray-800">{clients.find(c => c.id === Number(selectedClientId))?.nome}</p>
                             <p className="text-sm text-gray-600">{clients.find(c => c.id === Number(selectedClientId))?.indirizzo}</p>
-                            <p className="mt-2 text-gray-500">Data: {new Date().toLocaleDateString()}</p>
+                            <p className="mt-2 text-gray-500 font-bold">Data: {new Date().toLocaleDateString()}</p>
                         </div>
                     </div>
 
