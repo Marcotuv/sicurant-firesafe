@@ -227,7 +227,71 @@ const Anagraphics: React.FC = () => {
 
     const inputClass = (name: string) => `w-full p-2 border rounded text-sm outline-none transition-colors ${validationErrors[name] ? 'border-red-500 bg-red-50 text-red-900' : 'border-gray-300 bg-white dark:bg-slate-700 dark:border-slate-600 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500'}`;
     const handleImportClick = () => fileInputRef.current?.click();
-    const handleFileChange = (e: any) => { };
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const text = (event.target?.result as string) || "";
+            const lines = text.split(/\r?\n/).filter(l => l.trim());
+            if (lines.length < 2) return;
+
+            // Rileva separatore (punto e virgola o virgola)
+            const firstLine = lines[0];
+            const sep = firstLine.includes(';') ? ';' : ',';
+
+            const headers = firstLine.split(sep).map(h => h.trim().toLowerCase());
+            const dataRows = lines.slice(1);
+
+            const importedClients: any[] = dataRows.map((line, rowIdx) => {
+                const values = line.split(sep).map(v => v.trim().replace(/^"|"$/g, ''));
+                const c: any = { id: Date.now() + rowIdx };
+
+                headers.forEach((h, i) => {
+                    const v = values[i];
+                    if (!v) return;
+
+                    if (h.includes('ragione') || h.includes('nome')) c.nome = v;
+                    else if ((h.includes('indirizzo') || h.includes('sede')) && !h.includes('struttura')) c.indirizzo = v;
+                    else if (h.includes('piva') || h.includes('p.iva') || h.includes('partita')) c.piva = v;
+                    else if (h.includes('sdi') || h.includes('univoco')) c.codiceUnivoco = v;
+                    else if (h.includes('pec')) c.pec = v;
+                    else if (h.includes('referente') && (h.includes('amm') || h.includes('contatto'))) c.referente = v;
+                    else if (h.includes('telefono') || h.includes('cell')) c.telefono = v;
+                    else if (h.includes('email') || h.includes('mail')) c.email = v;
+                    else if (h.includes('pagamento')) c.pagamento = v;
+                    else if (h.includes('note')) c.note = v;
+                    else if (h.includes('commessa')) c.commessa = v;
+                    else if (h.includes('contratto')) c.idCommessa = v;
+                    else if (h.includes('struttura')) {
+                        if (h.includes('indirizzo')) c.indirizzoStruttura = v;
+                        else if (h.includes('id')) c.idStruttura = v;
+                        else c.struttura = v;
+                    }
+                    else if (h.includes('loco') || h.includes('referente')) {
+                        if (h.includes('tel') || h.includes('recapito')) c.recapitoCommessa = v;
+                        else if (h.includes('nome')) c.referenteCommessa = v;
+                    }
+                });
+                return c;
+            }).filter(c => c.nome && c.indirizzo);
+
+            if (importedClients.length > 0) {
+                try {
+                    await addClientsBulk(importedClients);
+                    alert(`Importazione completata: ${importedClients.length} clienti aggiunti.`);
+                } catch (err) {
+                    console.error("Import Error", err);
+                    alert('Errore durante l\'importazione.');
+                }
+            } else {
+                alert('Nessun dato valido trovato nel file. Assicurati che le colonne siano corrette e che Ragione Sociale e Indirizzo siano compilati.');
+            }
+            e.target.value = ''; // Reset input
+        };
+        reader.readAsText(file);
+    };
 
     return (
         <div className="space-y-6">
