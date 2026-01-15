@@ -151,8 +151,17 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
         note: client.note,
         json_content: client
       }));
-      await supabase.from('clients').upsert(payloads)
-        .then(({ error }) => { if (error) console.error("Cloud bulk add failed", error); });
+
+      // BATCHING: Supabase has limits on payload size/rows
+      const BATCH_SIZE = 500;
+      for (let i = 0; i < payloads.length; i += BATCH_SIZE) {
+        const batch = payloads.slice(i, i + BATCH_SIZE);
+        const { error } = await supabase.from('clients').upsert(batch);
+        if (error) {
+          console.error(`Batch starting at ${i} failed:`, error);
+          throw new Error(`Errore nel caricamento del blocco ${i / BATCH_SIZE + 1}: ${error.message}`);
+        }
+      }
     }
   }, []);
 

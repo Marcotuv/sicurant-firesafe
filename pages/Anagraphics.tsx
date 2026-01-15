@@ -263,6 +263,11 @@ const Anagraphics: React.FC = () => {
                     const values = parseLine(line);
                     const c: any = { id: Date.now() + rowIdx };
 
+                    if (values.length < 2) {
+                        console.warn(`[Import] Riga ${rowIdx + 2} saltata: troppo corta.`);
+                        return c;
+                    }
+
                     headers.forEach((h, i) => {
                         const v = values[i];
                         if (!v) return;
@@ -295,14 +300,15 @@ const Anagraphics: React.FC = () => {
 
                 if (importedClients.length > 0) {
                     try {
+                        console.log(`[Import] Tentativo di importazione di ${importedClients.length} clienti...`);
                         await addClientsBulk(importedClients);
-                        alert(`Importazione completata con successo!\n\nRighe lette: ${lines.length - 1}\nClienti validi importati: ${importedClients.length}\n\nNota: i clienti senza Nome o Indirizzo sono stati ignorati.`);
-                    } catch (err) {
+                        alert(`✅ Importazione completata con successo!\n\nRighe lette: ${lines.length - 1}\nClienti validi importati: ${importedClients.length}\n\nNota: i clienti senza Nome o Indirizzo sono stati ignorati.`);
+                    } catch (err: any) {
                         console.error("Sync Error", err);
-                        alert('Errore durante il salvataggio dei dati nel database.');
+                        alert(`❌ Errore durante il caricamento:\n${err.message || 'Errore di connessione o formato dati.'}\n\nPossibile causa: Il file potrebbe contenere caratteri speciali non supportati o il database è temporaneamente occupato.`);
                     }
                 } else {
-                    alert('Nessun dato valido trovato. Verifica che:\n1. Il file CSV abbia le intestazioni corrette (es: Ragione Sociale, Indirizzo).\n2. I campi obbligatori Nome e Indirizzo siano compilati.\n3. Il separatore (virgola o punto e virgola) sia coerente.');
+                    alert('⚠️ Nessun dato valido trovato.\n\nAssicurati che:\n1. Le colonne "Ragione Sociale" e "Indirizzo" siano presenti nella prima riga.\n2. Almeno queste due colonne siano compilate per ogni riga.\n3. Il separatore (virgola o punto e virgola) sia coerente.');
                 }
             } catch (err: any) {
                 console.error("Import Parser Error", err);
