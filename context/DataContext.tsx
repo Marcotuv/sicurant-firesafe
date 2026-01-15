@@ -49,16 +49,24 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const loadData = async () => {
       setIsLoading(true);
       try {
+        // PHASE 1: Critical Config
+        const [storedSbConfig, storedRemoteUrl, storedUserSignature] = await Promise.all([
+          get('supabase_config'), get('remote_url'), get('user_signature')
+        ]);
+
+        if (!envConfig.url && storedSbConfig) setSupabaseConfigState(storedSbConfig);
+        if (storedRemoteUrl) setRemoteUrlState(storedRemoteUrl);
+        setUserSignature(storedUserSignature || "");
+
+        // PHASE 2: Business Data
         const [
           storedSessions, storedInterventions, storedAssets, storedArticles,
           storedServices, storedAnomalies, storedAttendance, storedQuotations,
-          storedSbConfig, storedRemoteUrl,
-          storedUserNotes, storedUserSignature
+          storedUserNotes
         ] = await Promise.all([
           get('work_sessions'), get('interventions'), get('assets'), get('articles'),
           get('services'), get('anomalies'), get('attendance_history'), get('quotations'),
-          get('supabase_config'), get('remote_url'),
-          get('user_notes'), get('user_signature')
+          get('user_notes')
         ]);
 
         setSessions(storedSessions || []);
@@ -70,9 +78,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setAttendanceHistory(storedAttendance || []);
         setQuotations(storedQuotations || []);
         if (storedUserNotes) setUserNotes(storedUserNotes);
-        setUserSignature(storedUserSignature || "");
-        if (!envConfig.url && storedSbConfig) setSupabaseConfigState(storedSbConfig);
-        if (storedRemoteUrl) setRemoteUrlState(storedRemoteUrl);
 
       } finally {
         setIsLoading(false);

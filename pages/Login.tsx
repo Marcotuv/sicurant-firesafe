@@ -36,11 +36,19 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-slate-900 p-4 transition-colors duration-300">
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md p-8 border border-gray-200 dark:border-slate-700">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-32 h-32 mb-6 animate-fade-in">
-            <img src="/logo.png" alt="Sicur.Ant Logo" className="w-full h-full object-contain" />
+          <div className="inline-flex items-center justify-center w-32 h-32 mb-6 bg-white/5 rounded-2xl p-2 border border-white/10 shadow-inner">
+            <img
+              src="/logo.png?v=1.0.1"
+              alt="Sicur.Ant Logo"
+              className="w-full h-full object-contain brightness-110"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src = 'https://raw.githubusercontent.com/Marcotuv/sicurant-firesafe/master/public/logo.png';
+              }}
+            />
           </div>
           <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">Sicur.Ant</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-2 font-medium">Intranet Gestione Antincendio</p>
+          <p className="text-gray-500 dark:text-gray-400 mt-2 font-medium italic">Intranet Gestione Antincendio</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
