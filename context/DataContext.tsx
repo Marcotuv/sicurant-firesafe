@@ -106,6 +106,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (isFirstLoad.current || !isInitialized) return;
     try {
       await set(key, data);
+      notifyOtherTabs();
     } catch (err) {
       console.warn(`IDB Save Error [${key}]`, err);
     }
@@ -146,6 +147,74 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return () => clearTimeout(timer);
     }
   }, [quotations, isInitialized, persistData]);
+
+  // --- Multi-Tab / Visibility Sync ---
+  const broadcastRef = useRef<BroadcastChannel | null>(null);
+
+  useEffect(() => {
+    // Setup BroadcastChannel for cross-tab notifications
+    broadcastRef.current = new BroadcastChannel('sicurant_data_sync');
+    broadcastRef.current.onmessage = (event) => {
+      if (event.data === 'data_updated') {
+        refreshDataFromLocal();
+      }
+    };
+
+    return () => {
+      broadcastRef.current?.close();
+    };
+  }, []);
+
+  const refreshDataFromLocal = useCallback(async () => {
+    console.log('[DataContext] Refreshing from local IDB (cross-tab sync)');
+    const [
+      storedSessions, storedInterventions, storedAssets, storedArticles,
+      storedServices, storedAnomalies, storedAttendance, storedQuotations,
+      storedUserNotes
+    ] = await Promise.all([
+      get('work_sessions'), get('interventions'), get('assets'), get('articles'),
+      get('services'), get('anomalies'), get('attendance_history'), get('quotations'),
+      get('user_notes')
+    ]);
+
+    if (storedSessions) setSessions(storedSessions);
+    if (storedInterventions) setInterventions(storedInterventions);
+    if (storedAssets) setAssets(storedAssets);
+    if (storedArticles) setArticles(storedArticles);
+    if (storedServices) setServices(storedServices);
+    if (storedAnomalies) setAnomalies(storedAnomalies);
+    if (storedAttendance) setAttendanceHistory(storedAttendance);
+    if (storedQuotations) setQuotations(storedQuotations);
+    if (storedUserNotes) setUserNotes(storedUserNotes);
+  }, []);
+
+  const notifyOtherTabs = () => {
+    broadcastRef.current?.postMessage('data_updated');
+  };
+
+  const clearAllDataLocal = useCallback(async () => {
+    console.log('[DataContext] Clearing all local data...');
+    const keys = [
+      'work_sessions', 'interventions', 'assets', 'articles',
+      'services', 'anomalies', 'attendance_history', 'quotations',
+      'user_notes', 'user_signature', 'supabase_config', 'remote_url'
+    ];
+    // Clear IDB
+    await Promise.all(keys.map(k => set(k, null)));
+
+    // Reset React State
+    setSessions([]);
+    setInterventions(INITIAL_INTERVENTIONS);
+    setAssets(INITIAL_ASSETS);
+    setArticles(INITIAL_ARTICLES);
+    setServices(SERVICES_LIST);
+    setAnomalies(ANOMALIES_LIST);
+    setAttendanceHistory([]);
+    setQuotations([]);
+    setUserNotes([]);
+    setUserSignature("");
+    setLastSyncTime(null);
+  }, []);
 
   useEffect(() => {
     if (isInitialized) {
@@ -375,12 +444,28 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       const { data: assetsData } = await supabase.from('assets').select('*');
       if (assetsData) {
-        const mappedAssets: Asset[] = assetsData.map((d: any) => ({
+        const cloudAssets: Asset[] = assetsData.map((d: any) => ({
           id: d.id, clientId: d.client_id, tipo: d.tipo, matricola: d.matricola, ubicazione: d.ubicazione,
           scadenza: d.scadenza, dataUltimaRevisione: d.data_ultima_revisione, categoria: d.categoria,
           note: d.note, specificData: d.specific_data, updatedAt: d.updated_at
         }));
-        setAssets(mappedAssets);
+
+        // Non-destructive merge
+        setAssets(prev => {
+          const merged = [...prev];
+          cloudAssets.forEach(ca => {
+            const idx = merged.findIndex(ba => ba.id === ca.id);
+            if (idx === -1) merged.push(ca);
+            else {
+              const localUpdatedAt = merged[idx].updatedAt;
+              // Update only if cloud version is newer
+              if (!localUpdatedAt || (ca.updatedAt && new Date(ca.updatedAt) > new Date(localUpdatedAt))) {
+                merged[idx] = ca;
+              }
+            }
+          });
+          return merged;
+        });
       }
 
       let intQuery = supabase.from('interventions').select('*');
@@ -392,33 +477,75 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       const { data: intData } = await intQuery;
       if (intData) {
-        setInterventions(intData.map((d: any) => ({
+        const cloudInterventions: Intervention[] = intData.map((d: any) => ({
           id: d.id, clientId: d.client_id, clientName: '', assetId: d.asset_id, assetName: '',
           timestamp: d.timestamp, services: d.services, anomalies: d.anomalies, notes: d.notes,
           photos: d.photos, internalComments: d.internal_comments, technicianSignature: d.technician_signature,
           technicianSignatureImage: d.technician_signature_img, clientSignature: d.client_signature,
           clientSignatureImage: d.client_signature_img, updatedAt: d.updated_at
-        })));
+        }));
+
+        setInterventions(prev => {
+          const merged = [...prev];
+          cloudInterventions.forEach(ci => {
+            const idx = merged.findIndex(bi => bi.id === ci.id);
+            if (idx === -1) merged.push(ci);
+            else if (!merged[idx].updatedAt || (ci.updatedAt && new Date(ci.updatedAt) > new Date(merged[idx].updatedAt!))) {
+              merged[idx] = ci;
+            }
+          });
+          return merged;
+        });
       }
 
       const { data: sessData } = await supabase.from('work_sessions').select('*');
       if (sessData) {
-        setSessions(sessData.map((d: any) => ({
+        const cloudSessions: WorkSession[] = sessData.map((d: any) => ({
           id: d.id, clientId: d.client_id, startTimestamp: d.start_timestamp, status: d.statustext as any,
           scheduledDate: d.scheduled_date, assignedTechIds: d.assigned_tech_ids, assignedTechName: d.assigned_tech_name,
           generalNotes: d.general_notes, technicianSignature: d.tech_signature, technicianSignatureImage: d.tech_signature_img,
           clientSignature: d.client_signature, clientSignatureImage: d.client_signature_img,
           draftInterventions: [], interventionIds: d.intervention_ids || [], updatedAt: d.updated_at
-        })));
+        }));
+
+        setSessions(prev => {
+          const merged = [...prev];
+          cloudSessions.forEach(cs => {
+            const idx = merged.findIndex(bs => bs.id === cs.id);
+            if (idx === -1) merged.push(cs);
+            else {
+              // Intervention IDs merging (Smart Merge)
+              const combinedIds = Array.from(new Set([...(merged[idx].interventionIds || []), ...(cs.interventionIds || [])]));
+              if (!merged[idx].updatedAt || (cs.updatedAt && new Date(cs.updatedAt) > new Date(merged[idx].updatedAt!))) {
+                merged[idx] = { ...cs, interventionIds: combinedIds };
+              } else {
+                merged[idx] = { ...merged[idx], interventionIds: combinedIds };
+              }
+            }
+          });
+          return merged;
+        });
       }
 
       const { data: quotData } = await supabase.from('quotations').select('*');
       if (quotData) {
-        setQuotations(quotData.map((d: any) => ({
+        const cloudQuotations: Quotation[] = quotData.map((d: any) => ({
           id: d.id, number: d.number, type: d.type, category: d.category, clientId: d.client_id,
           clientName: '', title: '', description: '', items: d.items, amount: d.amount,
           status: d.status, date: d.date, expiryDate: d.expiry_date, notes: d.notes, updatedAt: d.updated_at
-        })));
+        }));
+
+        setQuotations(prev => {
+          const merged = [...prev];
+          cloudQuotations.forEach(cq => {
+            const idx = merged.findIndex(bq => bq.id === cq.id);
+            if (idx === -1) merged.push(cq);
+            else if (!merged[idx].updatedAt || (cq.updatedAt && new Date(cq.updatedAt) > new Date(merged[idx].updatedAt!))) {
+              merged[idx] = cq;
+            }
+          });
+          return merged;
+        });
       }
 
       const { data: attData } = await supabase.from('attendance_history').select('*');
@@ -432,9 +559,21 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       const { data: artData } = await supabase.from('articles').select('*');
       if (artData) {
-        setArticles(artData.map((d: any) => ({
+        const cloudArticles: Article[] = artData.map((d: any) => ({
           id: d.id, categoria: d.categoria, descrizione: d.descrizione, note: d.note, updatedAt: d.updated_at
-        })));
+        }));
+
+        setArticles(prev => {
+          const merged = [...prev];
+          cloudArticles.forEach(ca => {
+            const idx = merged.findIndex(ba => ba.id === ca.id);
+            if (idx === -1) merged.push(ca);
+            else if (!merged[idx].updatedAt || (ca.updatedAt && new Date(ca.updatedAt) > new Date(merged[idx].updatedAt!))) {
+              merged[idx] = ca;
+            }
+          });
+          return merged;
+        });
       }
 
       const { data: techData } = await supabase.from('profiles').select('*');
@@ -537,7 +676,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     clients, articles, assets, services, anomalies, checklistTemplates, categoryAnomalies, interventions, notifications, sessions, technicians, attendanceHistory, quotations, isLoading,
     userNotes, userSignature, updateUserNotes: setUserNotes, saveUserSignature: setUserSignature,
     remoteUrl, setRemoteUrl: setRemoteUrlState, supabaseConfig, setSupabaseConfig: setSupabaseConfigState, syncData,
-    downloadCloudData, syncStatus, lastSyncTime, checkConflict,
+    downloadCloudData, syncStatus, lastSyncTime, checkConflict, clearAllDataLocal,
     getOpenSession,
     createSession,
     scheduleSession,

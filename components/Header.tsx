@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Moon, Sun, LogOut, Bell, Trash2, Info, AlertTriangle, CheckCircle, XCircle, Menu, X, LayoutDashboard, Wrench, ClipboardList, Database, Settings, Cloud, CloudOff, FileText, User, CalendarRange } from 'lucide-react';
 import { useData } from '../context/DataContext';
+import { useClients } from '../context/ClientsContext';
 import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
@@ -11,7 +12,8 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ darkMode, toggleDarkMode }) => {
-  const { notifications, markNotificationAsRead, clearAllNotifications, supabaseConfig, syncStatus, lastSyncTime } = useData();
+  const { notifications, markNotificationAsRead, clearAllNotifications, supabaseConfig, syncStatus, lastSyncTime, syncData, clearAllDataLocal } = useData();
+  const { clearClientsData } = useClients();
   const { user, profile, signOut } = useAuth();
 
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -42,7 +44,13 @@ const Header: React.FC<HeaderProps> = ({ darkMode, toggleDarkMode }) => {
   };
 
   const handleLogout = async () => {
-    await signOut();
+    // Forzare sync prima del logout
+    await signOut(async () => {
+      console.log("[Header] Starting pre-logout sync...");
+      await syncData().catch(e => console.warn("Logout sync failed", e));
+      await clearAllDataLocal();
+      await clearClientsData();
+    });
     navigate('/login');
   };
 

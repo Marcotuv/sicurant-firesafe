@@ -12,7 +12,7 @@ interface AuthContextType {
     session: Session | null;
     loading: boolean;
     signIn: (email: string, password: string) => Promise<{ error: any }>;
-    signOut: () => Promise<void>;
+    signOut: (beforeLogout?: () => Promise<void>) => Promise<void>;
     // getMockUsers: () => typeof MOCK_USERS_DB; // RIMOSSO
 }
 
@@ -120,7 +120,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error };
     };
 
-    const signOut = async () => {
+    const signOut = async (beforeLogout?: () => Promise<void>) => {
+        if (beforeLogout) {
+            try {
+                await beforeLogout();
+            } catch (e) {
+                console.error("Error during beforeLogout sync", e);
+            }
+        }
         if (supabase) await supabase.auth.signOut();
         setUser(null);
         setSession(null);

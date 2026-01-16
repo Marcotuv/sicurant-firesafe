@@ -14,6 +14,7 @@ interface ClientsContextType {
   deleteClient: (id: number) => Promise<void>;
   addClientsBulk: (clients: Client[]) => Promise<void>;
   refreshClients: () => Promise<void>;
+  clearClientsData: () => Promise<void>;
 }
 
 const ClientsContext = createContext<ClientsContextType | undefined>(undefined);
@@ -47,7 +48,22 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
     loadClients();
   }, []);
 
-  // Salva in IndexedDB quando cambiano con DEBOUNCE
+  // --- Multi-Tab Sync ---
+  const broadcastRef = useRef<BroadcastChannel | null>(null);
+
+  useEffect(() => {
+    broadcastRef.current = new BroadcastChannel('sicurant_clients_sync');
+    broadcastRef.current.onmessage = (event) => {
+      if (event.data === 'clients_updated') {
+        console.log('[ClientsContext] Refreshing from local IDB (cross-tab sync)');
+        get('clients').then(stored => {
+          if (stored && Array.isArray(stored)) setClients(stored);
+        });
+      }
+    };
+    return () => broadcastRef.current?.close();
+  }, []);
+
   // Salva in IndexedDB quando cambiano con DEBOUNCE
   useEffect(() => {
     // Skip save during initial load
@@ -60,7 +76,11 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
 
     const timer = setTimeout(() => {
-      set('clients', clients).catch(err => console.warn("IDB Save Error", err));
+      set('clients', clients)
+        .then(() => {
+          broadcastRef.current?.postMessage('clients_updated');
+        })
+        .catch(err => console.warn("IDB Save Error", err));
     }, 1000); // 1 second debounce
     return () => clearTimeout(timer);
   }, [clients, loading]);
@@ -201,8 +221,28 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
         note: d.note,
         updatedAt: d.updated_at
       }));
-      setClients(remoteClients);
+
+      setClients(prev => {
+        const merged = [...prev];
+        remoteClients.forEach(rc => {
+          const idx = merged.findIndex(bc => bc.id === rc.id);
+          if (idx === -1) merged.push(rc);
+          else {
+            const localUpdatedAt = merged[idx].updatedAt;
+            // Update only if remote is newer
+            if (!localUpdatedAt || (rc.updatedAt && new Date(rc.updatedAt) > new Date(localUpdatedAt))) {
+              merged[idx] = rc;
+            }
+          }
+        });
+        return merged;
+      });
     }
+  }, []);
+
+  const clearClientsData = useCallback(async () => {
+    await set('clients', null);
+    setClients([]);
   }, []);
 
   const value = React.useMemo(() => ({
@@ -213,8 +253,9 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
     updateClient,
     deleteClient,
     addClientsBulk,
-    refreshClients
-  }), [clients, loading, error, addClient, updateClient, deleteClient, addClientsBulk, refreshClients]);
+    refreshClients,
+    clearClientsData
+  }), [clients, loading, error, addClient, updateClient, deleteClient, addClientsBulk, refreshClients, clearClientsData]);
 
   return (
     <ClientsContext.Provider value={value}>

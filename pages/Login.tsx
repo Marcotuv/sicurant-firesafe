@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogIn, AlertCircle, Info, ChevronDown } from 'lucide-react';
+import { LogIn, AlertCircle } from 'lucide-react';
 import { useData } from '../context/DataContext';
 
 const Login = () => {
@@ -11,7 +11,7 @@ const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
-  const { syncData, remoteUrl, supabaseConfig } = useData();
+  const { syncData, downloadCloudData, remoteUrl, supabaseConfig } = useData();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -19,16 +19,23 @@ const Login = () => {
     setError('');
     setLoading(true);
 
-    const { error } = await signIn(email, password);
+    try {
+      const { error } = await signIn(email, password);
 
-    if (error) {
-      setError(error.message || 'Credenziali non valide');
-      setLoading(false);
-    } else {
-      if (remoteUrl || (supabaseConfig.url && supabaseConfig.key)) {
-        syncData().catch(console.error);
+      if (error) {
+        setError(error.message || 'Credenziali non valide');
+        setLoading(false);
+      } else {
+        if (remoteUrl || (supabaseConfig.url && supabaseConfig.key)) {
+          // Sync then download to be safe
+          await syncData().catch(e => console.error("Login Sync Error", e));
+          await downloadCloudData().catch(e => console.error("Login Download Error", e));
+        }
+        navigate('/');
       }
-      navigate('/');
+    } catch (err: any) {
+      setError(err.message || 'Errore di sistema');
+      setLoading(false);
     }
   };
 

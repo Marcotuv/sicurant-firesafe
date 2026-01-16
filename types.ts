@@ -271,6 +271,7 @@ export interface DataContextType {
 
   exportData: () => void;
   importData: (jsonData: string) => boolean;
+  clearAllDataLocal: () => Promise<void>;
 }
 
 export interface UserProfile {
