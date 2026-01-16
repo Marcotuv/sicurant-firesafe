@@ -11,7 +11,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ darkMode, toggleDarkMode }) => {
-  const { notifications, markNotificationAsRead, clearAllNotifications, supabaseConfig } = useData();
+  const { notifications, markNotificationAsRead, clearAllNotifications, supabaseConfig, syncStatus, lastSyncTime } = useData();
   const { user, profile, signOut } = useAuth();
 
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -109,14 +109,31 @@ const Header: React.FC<HeaderProps> = ({ darkMode, toggleDarkMode }) => {
       <div className="flex items-center space-x-2 sm:space-x-4">
 
         {/* Cloud Status Indicator */}
-        <div className="hidden sm:flex items-center" title={isCloudConfigured ? "Sincronizzazione Cloud Attiva" : "Sincronizzazione Cloud Non Configurata"}>
-          {isCloudConfigured ? (
-            <div className="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 p-2 rounded-full transition-colors">
-              <Cloud size={20} />
-            </div>
-          ) : (
+        <div className="hidden sm:flex items-center" title={
+          syncStatus === 'offline' ? "Modalità Offline" :
+            syncStatus === 'syncing' ? "Sincronizzazione in corso..." :
+              syncStatus === 'error' ? "Errore di sincronizzazione" :
+                `Sincronizzato alle ${lastSyncTime || '---'}`
+        }>
+          {!isCloudConfigured ? (
             <div className="bg-gray-100 dark:bg-slate-800 text-gray-400 p-2 rounded-full transition-colors">
               <CloudOff size={20} />
+            </div>
+          ) : syncStatus === 'syncing' ? (
+            <div className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 p-2 rounded-full animate-pulse transition-colors">
+              <Cloud size={20} className="animate-bounce-slow" />
+            </div>
+          ) : syncStatus === 'error' ? (
+            <div className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-2 rounded-full transition-colors">
+              <CloudOff size={20} />
+            </div>
+          ) : syncStatus === 'offline' ? (
+            <div className="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 p-2 rounded-full transition-colors">
+              <CloudOff size={20} />
+            </div>
+          ) : (
+            <div className="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 p-2 rounded-full transition-colors">
+              <Cloud size={20} />
             </div>
           )}
         </div>

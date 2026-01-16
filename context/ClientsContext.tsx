@@ -48,16 +48,21 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, []);
 
   // Salva in IndexedDB quando cambiano con DEBOUNCE
+  // Salva in IndexedDB quando cambiano con DEBOUNCE
   useEffect(() => {
-    if (!loading && !isFirstLoad.current) {
-      const timer = setTimeout(() => {
-        set('clients', clients).catch(err => console.warn("IDB Save Error", err));
-      }, 1000); // 1 second debounce
-      return () => clearTimeout(timer);
-    } else if (!loading && isFirstLoad.current) {
-      // First load finished, allow subsequent writes
-      isFirstLoad.current = false;
+    // Skip save during initial load
+    if (loading) return;
+
+    // On first load completion, mark as ready
+    if (isFirstLoad.current) {
+      if (!loading) isFirstLoad.current = false;
+      return;
     }
+
+    const timer = setTimeout(() => {
+      set('clients', clients).catch(err => console.warn("IDB Save Error", err));
+    }, 1000); // 1 second debounce
+    return () => clearTimeout(timer);
   }, [clients, loading]);
 
   const addClient = useCallback(async (client: Client) => {
@@ -163,7 +168,13 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
         }
       }
     }
-  }, []);
+
+    // Force immediate local save for bulk import
+    try {
+      await set('clients', [...clients, ...newClients]);
+    } catch (e) { console.warn("Local save failed", e) }
+
+  }, [clients]);
 
   const refreshClients = useCallback(async () => {
     if (!supabase) return;

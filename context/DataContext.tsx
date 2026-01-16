@@ -44,6 +44,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   });
 
   const [isInitialized, setIsInitialized] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error' | 'offline'>('synced');
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -93,23 +95,21 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const isFirstLoad = useRef(true);
 
   // Unlock persistence after initialization and a small stability delay
+  // Unlock persistence immediately after initialization
   useEffect(() => {
     if (isInitialized) {
-      const timer = setTimeout(() => {
-        isFirstLoad.current = false;
-      }, 3000); // 3 seconds window where no IDB writes happen on boot
-      return () => clearTimeout(timer);
+      isFirstLoad.current = false;
     }
   }, [isInitialized]);
 
   const persistData = useCallback(async (key: string, data: any) => {
-    if (isFirstLoad.current) return;
+    if (isFirstLoad.current || !isInitialized) return;
     try {
       await set(key, data);
     } catch (err) {
       console.warn(`IDB Save Error [${key}]`, err);
     }
-  }, []);
+  }, [isInitialized]);
 
   useEffect(() => {
     if (isInitialized) {
@@ -192,8 +192,20 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return `${currentYear}/${nextProg}`;
   };
 
-  const syncData = useCallback(async (): Promise<{ success: boolean; message: string }> => {
+  const checkConflict = useCallback(async (table: string, id: string | number, localUpdatedAt?: string) => {
+    if (!globalSupabase) return false;
+    const { data, error } = await globalSupabase.from(table).select('updated_at').eq('id', id).single();
+    if (error || !data) return false;
+
+    if (localUpdatedAt && data.updated_at) {
+      return new Date(data.updated_at) > new Date(localUpdatedAt);
+    }
+    return false;
+  }, []);
+
+  const syncData = useCallback(async (options: { forceRemoteMerge?: boolean } = {}): Promise<{ success: boolean; message: string }> => {
     return safeSync(async () => {
+      setSyncStatus('syncing');
       const supabase = globalSupabase;
       if (!supabase) throw new Error("Cloud non configurato correttamente.");
 
@@ -242,23 +254,38 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // --- 3. SESSIONS ---
       if (sessions.length > 0) {
-        const payload = sessions.map(s => ({
-          id: s.id,
-          client_id: s.clientId,
-          statustext: s.status, // Mappato su colonna 'statustext'
-          start_timestamp: s.startTimestamp,
-          scheduled_date: s.scheduledDate,
-          assigned_tech_ids: s.assignedTechIds,
-          assigned_tech_name: s.assignedTechName,
-          general_notes: s.generalNotes,
-          tech_signature: s.technicianSignature,
-          tech_signature_img: s.technicianSignatureImage,
-          client_signature: s.clientSignature,
-          client_signature_img: s.clientSignatureImage,
-          intervention_ids: s.interventionIds,
-          updated_at: s.updatedAt || new Date().toISOString(),
-          json_content: s
-        }));
+        // SMART MERGE LOGIC for intervention_ids
+        const { data: remoteSessions } = await supabase.from('work_sessions').select('id, intervention_ids');
+
+        const payload = sessions.map(s => {
+          let finalInterventionIds = s.interventionIds;
+
+          if (remoteSessions) {
+            const remote = remoteSessions.find(rs => rs.id === s.id);
+            if (remote && Array.isArray(remote.intervention_ids)) {
+              // Merge: Unique set of local and remote IDs
+              finalInterventionIds = Array.from(new Set([...remote.intervention_ids, ...s.interventionIds]));
+            }
+          }
+
+          return {
+            id: s.id,
+            client_id: s.clientId,
+            statustext: s.status,
+            start_timestamp: s.startTimestamp,
+            scheduled_date: s.scheduledDate,
+            assigned_tech_ids: s.assignedTechIds,
+            assigned_tech_name: s.assignedTechName,
+            general_notes: s.generalNotes,
+            tech_signature: s.technicianSignature,
+            tech_signature_img: s.technicianSignatureImage,
+            client_signature: s.clientSignature,
+            client_signature_img: s.clientSignatureImage,
+            intervention_ids: finalInterventionIds,
+            updated_at: s.updatedAt || new Date().toISOString(),
+            json_content: { ...s, interventionIds: finalInterventionIds }
+          };
+        });
         const { error } = await supabase.from('work_sessions').upsert(payload);
         if (error) throw error;
       }
@@ -326,6 +353,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       await refreshClients();
+      setSyncStatus('synced');
+      setLastSyncTime(new Date().toLocaleTimeString());
     });
   }, [supabaseConfig, interventions, assets, sessions, quotations, attendanceHistory, safeSync, refreshClients]);
 
@@ -475,7 +504,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       }
     }
-  }, []);
+
+    // Force immediate local save for bulk import
+    try {
+      await set('assets', [...assets, ...newAssets]);
+    } catch (e) { console.warn("Local save failed", e) }
+  }, [assets]);
 
   const saveInterventionToSession = useCallback((sessionId: string, intervention: Intervention, metadata?: Partial<WorkSession>) => {
     setSessions(prev => prev.map(s => {
@@ -503,7 +537,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     clients, articles, assets, services, anomalies, checklistTemplates, categoryAnomalies, interventions, notifications, sessions, technicians, attendanceHistory, quotations, isLoading,
     userNotes, userSignature, updateUserNotes: setUserNotes, saveUserSignature: setUserSignature,
     remoteUrl, setRemoteUrl: setRemoteUrlState, supabaseConfig, setSupabaseConfig: setSupabaseConfigState, syncData,
-    downloadCloudData,
+    downloadCloudData, syncStatus, lastSyncTime, checkConflict,
     getOpenSession,
     createSession,
     scheduleSession,
@@ -551,7 +585,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }), [
     clients, articles, assets, services, anomalies, checklistTemplates, categoryAnomalies, interventions, notifications, sessions, technicians, attendanceHistory, quotations, isLoading,
     userNotes, userSignature, remoteUrl, supabaseConfig, syncData, downloadCloudData, getOpenSession, createSession, scheduleSession, updateSession, updatePlannedSession, saveInterventionToSession, closeSession,
-    addClientCtx, updateClientCtx, addClientsBulkCtx, deleteClientCtx
+    addClientCtx, updateClientCtx, addClientsBulkCtx, deleteClientCtx,
+    syncStatus, lastSyncTime, checkConflict
   ]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

@@ -205,6 +205,8 @@ export interface DataContextType {
   attendanceHistory: AttendanceRecord[];
   quotations: Quotation[];
   isLoading: boolean;
+  syncStatus: 'synced' | 'syncing' | 'error' | 'offline';
+  lastSyncTime: string | null;
 
   userNotes: Note[];
   userSignature: string;
@@ -216,8 +218,9 @@ export interface DataContextType {
   setSupabaseConfig: (config: SupabaseConfig) => void;
   setRemoteUrl: (url: string) => void;
 
-  syncData: () => Promise<{ success: boolean; message: string }>;
+  syncData: (options?: { forceRemoteMerge?: boolean }) => Promise<{ success: boolean; message: string }>;
   downloadCloudData: () => Promise<{ success: boolean; message?: string }>;
+  checkConflict: (table: string, id: string | number, localUpdatedAt?: string) => Promise<boolean>;
 
   getOpenSession: (clientId: number) => WorkSession | undefined;
   createSession: (clientId: number) => WorkSession;

@@ -3,7 +3,8 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../config/supabase';
-import { Database, Plus, Trash2, Edit, X, Save, Upload, Package, MapPin, CreditCard, User, Briefcase, Building, ChevronDown, Lock, AlertCircle, Search, Copy, Download } from 'lucide-react';
+import { Database, Plus, Trash2, Edit, X, Save, Upload, Package, MapPin, CreditCard, User, Briefcase, Building, ChevronDown, Lock, AlertCircle, Search, Copy, Download, AlertTriangle } from 'lucide-react';
+import ConflictWarning from '../components/ConflictWarning';
 import { useNavigate } from 'react-router-dom';
 import { Client, Asset, Article } from '../types';
 import { PAYMENT_METHODS, ASSET_SCHEMAS } from '../lib/constants';
@@ -47,7 +48,7 @@ const Anagraphics: React.FC = () => {
         clients, articles, assets, services, anomalies, checklistTemplates, categoryAnomalies,
         deleteClient, deleteArticle, deleteAsset, deleteService, deleteAnomaly,
         addClient, updateClient, addClientsBulk, addArticle, addArticlesBulk, addAsset, addAssetsBulk,
-        addService, addAnomaly, updateChecklistTemplate, updateCategoryAnomaly
+        addService, addAnomaly, updateChecklistTemplate, updateCategoryAnomaly, checkConflict
     } = useData();
 
     // 1. ALL STATE HOOKS AT THE TOP
@@ -57,6 +58,10 @@ const Anagraphics: React.FC = () => {
 
     const [isClientModalOpen, setIsClientModalOpen] = useState(false);
     const [editingClientId, setEditingClientId] = useState<number | null>(null);
+
+    // Conflict management state
+    const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
+    const [pendingClientData, setPendingClientData] = useState<Client | null>(null);
     const [newClient, setNewClient] = useState<Partial<Client>>({});
     const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
     const [isCustomPaymentInput, setIsCustomPaymentInput] = useState(false);
@@ -229,7 +234,7 @@ const Anagraphics: React.FC = () => {
         setIsClientModalOpen(true);
     };
 
-    const handleSaveClient = () => {
+    const handleSaveClient = async (force: boolean = false) => {
         const result = ClientSchema.safeParse(newClient);
         if (!result.success) {
             const errors: Record<string, string> = {};
@@ -241,10 +246,21 @@ const Anagraphics: React.FC = () => {
         }
 
         const clientData = { ...newClient } as Client;
-        if (editingClientId !== null) updateClient(clientData);
+
+        // Conflict check for existing clients
+        if (editingClientId !== null && !force) {
+            const hasConflict = await checkConflict('clients', editingClientId, clientData.updatedAt);
+            if (hasConflict) {
+                setPendingClientData(clientData);
+                setIsConflictModalOpen(true);
+                return;
+            }
+        }
+
+        if (editingClientId !== null) updateClient({ ...clientData, updatedAt: new Date().toISOString() });
         else {
             const maxId = clients.reduce((max, c) => Math.max(c.id, max), 0);
-            addClient({ ...clientData, id: maxId + 1 });
+            addClient({ ...clientData, id: maxId + 1, updatedAt: new Date().toISOString() });
         }
         setIsClientModalOpen(false);
     };
@@ -891,7 +907,7 @@ const Anagraphics: React.FC = () => {
 
                         <div className="mt-8 pt-4 border-t border-gray-100 dark:border-slate-700 flex justify-end gap-3">
                             <button onClick={() => setIsClientModalOpen(false)} className="px-6 py-2 border border-gray-300 dark:border-slate-600 rounded text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700">Annulla</button>
-                            <button onClick={handleSaveClient} className="px-8 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded font-bold shadow-md transition-all flex items-center"><Save size={18} className="mr-2" /> Salva Cliente</button>
+                            <button onClick={() => handleSaveClient()} className="px-8 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded font-bold shadow-md transition-all flex items-center"><Save size={18} className="mr-2" /> Salva Cliente</button>
                         </div>
                     </div>
                 </div>
@@ -993,7 +1009,6 @@ const Anagraphics: React.FC = () => {
                 </div>
             )}
 
-            {/* Simple Modal */}
             {isSimpleModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
                     <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-sm p-6">
@@ -1008,6 +1023,22 @@ const Anagraphics: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            <ConflictWarning
+                isOpen={isConflictModalOpen}
+                onClose={() => setIsConflictModalOpen(false)}
+                itemName={pendingClientData?.nome}
+                onOverwrite={() => {
+                    if (pendingClientData) {
+                        updateClient({ ...pendingClientData, updatedAt: new Date().toISOString() });
+                        setIsConflictModalOpen(false);
+                        setIsClientModalOpen(false);
+                    }
+                }}
+                onReload={() => {
+                    setIsConflictModalOpen(false);
+                }}
+            />
         </div>
     );
 };

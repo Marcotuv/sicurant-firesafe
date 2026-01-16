@@ -26,8 +26,11 @@ import { DataProvider } from './context/DataContext';
 import { ClientsProvider } from './context/ClientsContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
+import { useAutoSync } from './hooks/useAutoSync';
+
 const AppContent: React.FC = () => {
   const { user, loading } = useAuth();
+  useAutoSync(); // Activate background sync
   const [darkMode, setDarkMode] = useState(false);
 
   useEffect(() => {
