@@ -3,10 +3,10 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../config/supabase';
-import { Database, Plus, Trash2, Edit, X, Save, Upload, Package, MapPin, CreditCard, User, Briefcase, Building, ChevronDown, Lock, AlertCircle, Search, Copy } from 'lucide-react';
+import { Database, Plus, Trash2, Edit, X, Save, Upload, Package, MapPin, CreditCard, User, Briefcase, Building, ChevronDown, Lock, AlertCircle, Search, Copy, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Client, Asset, Article } from '../types';
-import { PAYMENT_METHODS } from '../lib/constants';
+import { PAYMENT_METHODS, ASSET_SCHEMAS } from '../lib/constants';
 // @ts-ignore
 import { z } from 'zod';
 
@@ -399,6 +399,28 @@ const Anagraphics: React.FC = () => {
 
     const handleAssetImportClick = () => assetFileInputRef.current?.click();
 
+    const handleDownloadTemplate = () => {
+        const standardHeaders = ['Tipo', 'Matricola', 'Ubicazione', 'Scadenza', 'Note', 'Categoria'];
+        const specificKeys = new Set<string>();
+
+        Object.values(ASSET_SCHEMAS).forEach(fields => {
+            fields.forEach(f => specificKeys.add(f.key));
+        });
+
+        const allHeaders = [...standardHeaders, ...Array.from(specificKeys)];
+        const csvContent = "data:text/csv;charset=utf-8,"
+            + allHeaders.join(";") + "\n"
+            + "Estintore;12345;Piano Terra;2025-12-31;Esempio;Antincendio;" + Array.from(specificKeys).map(() => "").join(";");
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "template_presidi_completo.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     const handleAssetFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         console.log("[Asset Import] File selected:", file?.name);
@@ -457,6 +479,26 @@ const Anagraphics: React.FC = () => {
                         else if (h.includes('scadenza')) a.scadenza = v;
                         else if (h.includes('note')) a.note = v;
                         else if (h.includes('categoria')) a.categoria = v;
+                        else {
+                            // Check for specific fields from ASSET_SCHEMAS
+                            // Normalize header: replace spaces with underscores to match keys if needed
+                            const normalizedH = h.replace(/\s+/g, '_');
+                            let foundKey: string | null = null;
+
+                            // Check all schemas for a matching key
+                            for (const fields of Object.values(ASSET_SCHEMAS)) {
+                                const field = fields.find(f => f.key.toLowerCase() === normalizedH);
+                                if (field) {
+                                    foundKey = field.key;
+                                    break;
+                                }
+                            }
+
+                            if (foundKey) {
+                                if (!a.specificData) a.specificData = {};
+                                a.specificData[foundKey] = v;
+                            }
+                        }
                     });
 
                     if (!a.tipo) a.tipo = 'Presidio Generico';
@@ -880,6 +922,9 @@ const Anagraphics: React.FC = () => {
                             <div className="flex gap-2">
                                 <button onClick={handleAssetImportClick} className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-3 py-1 rounded flex items-center transition-colors">
                                     <Upload size={14} className="mr-1" /> Importa CSV
+                                </button>
+                                <button onClick={handleDownloadTemplate} className="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 px-3 py-1 rounded flex items-center transition-colors" title="Scarica modello con tutte le colonne">
+                                    <Download size={14} className="mr-1" /> Template
                                 </button>
                                 <button onClick={() => setIsInventoryModalOpen(false)} className="text-gray-400 hover:text-red-500"><X size={24} /></button>
                             </div>

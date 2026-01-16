@@ -3,8 +3,8 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { CheckCircle, AlertTriangle, FileText, Wrench, Save, X, Search, Eraser, FileCheck, Printer, Loader2, ClipboardCheck, FileOutput, Database, ChevronDown, ChevronUp, Calendar, MapPin, ArrowRight, Briefcase, User, Building, MessageSquare, Camera, Plus, Send } from 'lucide-react';
-import { Asset, Intervention, Client, InternalComment } from '../types';
-import { CATEGORY_STANDARDS } from '../lib/constants';
+import { Asset, Intervention, Client, InternalComment, SchemaField } from '../types';
+import { CATEGORY_STANDARDS, ASSET_SCHEMAS } from '../lib/constants';
 import { getLocalDate, isAssetExpired, addMonthsToDate } from '../utils/dates';
 import { SignaturePad } from '../components/SignaturePad';
 import { useAuth } from '../context/AuthContext';
@@ -21,95 +21,9 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 // ... (ASSET SCHEMAS AS BEFORE) ...
-// --- DEFINIZIONE SCHEMI REGISTRI TECNICI ---
-type FieldType = 'text' | 'number' | 'date' | 'boolean' | 'select' | 'header';
+// --- SCHEMI REGISTRI IMPORTATI DA Constants ---
 
-interface SchemaField {
-    key: string;
-    label: string;
-    type: FieldType;
-    options?: string[]; // Per select
-    width?: 'full' | 'half' | 'third';
-}
 
-const ASSET_SCHEMAS: Record<string, SchemaField[]> = {
-    "Estintori": [
-        { key: 'anno_costruzione', label: 'Anno Costruzione', type: 'number', width: 'half' },
-        { key: 'scadenza_serbatoio', label: 'Scadenza Serbatoio', type: 'date', width: 'half' },
-        { key: 'prossimo_controllo', label: 'Data Prossimo Controllo (+6 Mesi)', type: 'date', width: 'third' },
-        { key: 'prossima_revisione', label: 'Data Prossima Revisione (Calc. UNI 9994)', type: 'date', width: 'third' },
-        { key: 'prossimo_collaudo', label: 'Data Prossimo Collaudo (Calc. UNI 9994)', type: 'date', width: 'third' },
-    ],
-    "Idranti": [
-        { key: 'cassetta', label: 'Cassetta', type: 'boolean', width: 'third' },
-        { key: 'lastra', label: 'Lastra', type: 'boolean', width: 'third' },
-        { key: 'manichetta', label: 'Manichetta', type: 'boolean', width: 'third' },
-        { key: 'lancia', label: 'Lancia', type: 'boolean', width: 'third' },
-        { key: 'rubinetto', label: 'Rubinetto', type: 'boolean', width: 'third' },
-        { key: 'chiave_manovra', label: 'Chiave di Manovra', type: 'boolean', width: 'third' },
-        { key: 'pressione_statica', label: 'Pressione Statica (bar)', type: 'number', width: 'half' },
-        { key: 'pressione_dinamica', label: 'Pressione Dinamica (bar)', type: 'number', width: 'half' },
-    ],
-    "Porte REI / US": [
-        { key: 'tipo_porta', label: 'Tipo Porta', type: 'select', options: ['US (Uscita Sicurezza)', 'REI 60', 'REI 90', 'REI 120', 'Portone Scorrevole', 'Portone a Libro'], width: 'half' },
-        { key: 'n_ante', label: 'N. Ante', type: 'number', width: 'half' },
-        { key: 'oblo', label: 'Presenza Oblò', type: 'boolean', width: 'third' },
-        { key: 'maniglione', label: 'Maniglione Antipanico', type: 'select', options: ['Assente', 'Barra', 'Push-Bar', 'Maniglia'], width: 'third' },
-        { key: 'fermo_porta', label: 'Fermo Porta', type: 'boolean', width: 'third' },
-        { key: 'serratura', label: 'Serratura', type: 'boolean', width: 'third' },
-        { key: 'allarme', label: 'Allarme', type: 'boolean', width: 'third' },
-        { key: 'bloccaggio', label: 'Bloccaggio (Chiudiporta)', type: 'boolean', width: 'third' },
-        { key: 'magneti', label: 'Magneti (Fermo Elettrom.)', type: 'boolean', width: 'third' },
-        { key: 'scrocchi', label: 'Scrocchi', type: 'boolean', width: 'third' },
-        { key: 'chiudiporta', label: 'Chiudiporta Aereo', type: 'boolean', width: 'third' },
-    ],
-    "Pompaggio": [
-        // Pompa Pilota
-        { key: 'h_pilota', label: '--- ELETTROPOMPA PILOTA ---', type: 'header', width: 'full' },
-        { key: 'pilota_marca', label: 'Marca', type: 'text', width: 'third' },
-        { key: 'pilota_sn', label: 'S/N', type: 'text', width: 'third' },
-        { key: 'pilota_kw', label: 'Kw / Volt', type: 'text', width: 'third' },
-        // Pompa 1
-        { key: 'h_p1', label: '--- ELETTROPOMPA 1 ---', type: 'header', width: 'full' },
-        { key: 'p1_marca', label: 'Marca', type: 'text', width: 'third' },
-        { key: 'p1_sn', label: 'S/N', type: 'text', width: 'third' },
-        { key: 'p1_kw', label: 'Kw / Volt', type: 'text', width: 'third' },
-        // Pompa 2
-        { key: 'h_p2', label: '--- ELETTROPOMPA 2 ---', type: 'header', width: 'full' },
-        { key: 'p2_marca', label: 'Marca', type: 'text', width: 'third' },
-        { key: 'p2_sn', label: 'S/N', type: 'text', width: 'third' },
-        { key: 'p2_kw', label: 'Kw / Volt', type: 'text', width: 'third' },
-        // Motopompa
-        { key: 'h_pd', label: '--- MOTOPOMPA DIESEL ---', type: 'header', width: 'full' },
-        { key: 'pd_marca', label: 'Marca', type: 'text', width: 'third' },
-        { key: 'pd_sn', label: 'S/N', type: 'text', width: 'third' },
-        { key: 'pd_kw', label: 'Kw / Volt', type: 'text', width: 'third' },
-        // Altro
-        { key: 'h_comp', label: '--- COMPONENTI & ALLARMI ---', type: 'header', width: 'full' },
-        { key: 'valvole_sprinkler', label: 'Valvole Sprinkler', type: 'boolean', width: 'third' },
-        { key: 'sirena', label: 'Sirena Rosso/Gialla', type: 'boolean', width: 'third' },
-        { key: 'batteria_motopompa', label: 'Batteria Motopompa', type: 'boolean', width: 'third' },
-        { key: 'lampada_emergenza', label: 'Lampada Emergenza', type: 'boolean', width: 'third' },
-        { key: 'rimandi', label: 'Rimandi Allarme', type: 'boolean', width: 'third' },
-    ],
-    "Rivelazione": [
-        { key: 'tipo_centrale', label: 'Tipo Centrale', type: 'select', options: ['Convenzionale', 'Indirizzata', 'Analogica'], width: 'half' },
-        { key: 'marca', label: 'Marca', type: 'text', width: 'half' },
-        { key: 'modello', label: 'Modello', type: 'text', width: 'third' },
-        { key: 'anno_produzione', label: 'Anno Produzione', type: 'number', width: 'third' },
-        { key: 'n_loop', label: 'Numero Loop/Zone', type: 'number', width: 'third' },
-        { key: 'h_comp', label: '--- COMPONENTI ---', type: 'header', width: 'full' },
-        { key: 'n_sens_fumo', label: 'N. Rilevatori Fumo', type: 'number', width: 'third' },
-        { key: 'n_sens_calore', label: 'N. Rilevatori Calore', type: 'number', width: 'third' },
-        { key: 'n_pulsanti', label: 'N. Pulsanti', type: 'number', width: 'third' },
-        { key: 'n_targhe', label: 'N. Targhe Ottico/Acustiche', type: 'number', width: 'third' },
-        { key: 'sirena_esterna', label: 'Sirena Esterna', type: 'boolean', width: 'third' },
-        { key: 'rimandi', label: 'Rimandi Allarme', type: 'boolean', width: 'third' },
-        { key: 'evacuatori', label: 'Comando Evacuatori', type: 'boolean', width: 'third' },
-        { key: 'bombole', label: 'Comando Bombole', type: 'boolean', width: 'third' },
-        { key: 'cavo', label: 'Tipo Cavo / Sezione', type: 'text', width: 'full' },
-    ]
-};
 
 // --- ROW COMPONENT (Standard implementation, no virtualization) ---
 const AssetRow = React.memo(({ asset, isDraft, onSelect }: { asset: Asset, isDraft: boolean, onSelect: (a: Asset) => void }) => {

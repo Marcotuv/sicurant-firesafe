@@ -98,6 +98,16 @@ export interface Technician {
   color: string;
 }
 
+export type FieldType = 'text' | 'number' | 'date' | 'boolean' | 'select' | 'header';
+
+export interface SchemaField {
+  key: string;
+  label: string;
+  type: FieldType;
+  options?: string[];
+  width?: 'full' | 'half' | 'third';
+}
+
 export interface NotificationAttachment {
   name: string;
   type: 'image' | 'pdf';

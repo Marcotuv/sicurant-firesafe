@@ -62,11 +62,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const [
           storedSessions, storedInterventions, storedAssets, storedArticles,
           storedServices, storedAnomalies, storedAttendance, storedQuotations,
-          storedUserNotes
+          storedUserNotes, storedTechnicians
         ] = await Promise.all([
           get('work_sessions'), get('interventions'), get('assets'), get('articles'),
           get('services'), get('anomalies'), get('attendance_history'), get('quotations'),
-          get('user_notes')
+          get('user_notes'), get('technicians')
         ]);
 
         setSessions(storedSessions || []);
@@ -76,7 +76,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setServices(storedServices || SERVICES_LIST);
         setAnomalies(storedAnomalies || ANOMALIES_LIST);
         setAttendanceHistory(storedAttendance || []);
+        setAttendanceHistory(storedAttendance || []);
         setQuotations(storedQuotations || []);
+        setTechnicians(storedTechnicians || []);
         if (storedUserNotes) setUserNotes(storedUserNotes);
 
       } finally {
@@ -162,6 +164,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return () => clearTimeout(timer);
     }
   }, [attendanceHistory, isInitialized, persistData]);
+
+  useEffect(() => {
+    if (isInitialized) {
+      const timer = setTimeout(() => {
+        persistData('technicians', technicians);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [technicians, isInitialized, persistData]);
 
   // Helper puro per generare il numero basato su una lista esistente
   const generateQuotationNumberInternal = (list: Quotation[]) => {
