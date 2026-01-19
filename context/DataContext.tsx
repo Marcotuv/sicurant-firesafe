@@ -421,11 +421,45 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (error) throw error;
       }
 
+      // --- 7. CLIENTS (Anagrafiche) ---
+      if (clients.length > 0) {
+        const payload = clients.map(client => ({
+          id: client.id,
+          nome: client.nome,
+          indirizzo: client.indirizzo,
+          piva: client.piva,
+          codice_univoco: client.codiceUnivoco,
+          pec: client.pec,
+          referente: client.referente,
+          telefono: client.telefono,
+          email: client.email,
+          commessa: client.commessa,
+          id_commessa: client.idCommessa,
+          struttura: client.struttura,
+          indirizzo_struttura: client.indirizzoStruttura,
+          id_struttura: client.idStruttura,
+          referente_commessa: client.referenteCommessa,
+          recapito_commessa: client.recapitoCommessa,
+          pagamento: client.pagamento,
+          note: client.note,
+          updated_at: client.updatedAt || new Date().toISOString(),
+          json_content: client
+        }));
+
+        // Batching for clients
+        const BATCH_SIZE = 500;
+        for (let i = 0; i < payload.length; i += BATCH_SIZE) {
+          const batch = payload.slice(i, i + BATCH_SIZE);
+          const { error } = await supabase.from('clients').upsert(batch);
+          if (error) throw error;
+        }
+      }
+
       await refreshClients();
       setSyncStatus('synced');
       setLastSyncTime(new Date().toLocaleTimeString());
     });
-  }, [supabaseConfig, interventions, assets, sessions, quotations, attendanceHistory, safeSync, refreshClients]);
+  }, [supabaseConfig, interventions, assets, sessions, quotations, attendanceHistory, articles, clients, safeSync, refreshClients]);
 
   const downloadCloudData = useCallback(async () => {
     const supabase = globalSupabase;

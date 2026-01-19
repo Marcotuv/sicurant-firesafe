@@ -21,6 +21,9 @@ export const useAutoSync = (intervalMs: number = 5 * 60 * 1000) => {
     useEffect(() => {
         if (!user) return;
 
+        // Esegui sync immediato all'avvio/login
+        performSync();
+
         // Start interval
         timerRef.current = setInterval(performSync, intervalMs);
 

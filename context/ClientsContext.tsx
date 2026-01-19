@@ -155,6 +155,7 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
   const addClientsBulk = useCallback(async (newClients: Client[]) => {
     setClients(prev => [...prev, ...newClients]);
     if (supabase && newClients.length > 0) {
+      const timestamp = new Date().toISOString();
       const payloads = newClients.map(client => ({
         id: client.id,
         nome: client.nome,
@@ -174,7 +175,8 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
         recapito_commessa: client.recapitoCommessa,
         pagamento: client.pagamento,
         note: client.note,
-        json_content: client
+        updated_at: timestamp,
+        json_content: { ...client, updatedAt: timestamp }
       }));
 
       // BATCHING: Supabase has limits on payload size/rows
@@ -189,10 +191,12 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
     }
 
-    // Force immediate local save for bulk import
-    try {
-      await set('clients', [...clients, ...newClients]);
-    } catch (e) { console.warn("Local save failed", e) }
+    // Force immediate local save for bulk import - get latest state to avoid race conditions
+    setClients(prev => {
+      const updated = [...prev];
+      set('clients', updated).catch(e => console.warn("Local save failed", e));
+      return updated;
+    });
 
   }, [clients]);
 
