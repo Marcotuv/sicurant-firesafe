@@ -490,7 +490,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
 
         console.log('[DataContext] Fine caricamento dati, rinfresco anagrafiche...');
-        await refreshClients();
+        // TODO: Temporarily disabled to debug sync loop
+        // await refreshClients();
+        console.log('[DataContext] Sync completata con successo!');
         setSyncStatus('synced');
         setLastSyncTime(new Date().toLocaleTimeString());
       } catch (err) {
