@@ -124,25 +124,27 @@ const Header: React.FC<HeaderProps> = ({ darkMode, toggleDarkMode }) => {
                 `Sincronizzato alle ${lastSyncTime || '---'}`
         }>
           {!isCloudConfigured ? (
-            <div className="bg-gray-100 dark:bg-slate-800 text-gray-400 p-2 rounded-full transition-colors">
-              <CloudOff size={20} />
-            </div>
-          ) : syncStatus === 'syncing' ? (
-            <div className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 p-2 rounded-full animate-pulse transition-colors">
-              <Cloud size={20} className="animate-bounce-slow" />
-            </div>
-          ) : syncStatus === 'error' ? (
-            <div className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-2 rounded-full transition-colors">
-              <CloudOff size={20} />
-            </div>
-          ) : syncStatus === 'offline' ? (
-            <div className="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 p-2 rounded-full transition-colors">
+            <div className="bg-gray-100 dark:bg-slate-800 text-gray-400 p-2 rounded-full transition-colors cursor-not-allowed">
               <CloudOff size={20} />
             </div>
           ) : (
-            <div className="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 p-2 rounded-full transition-colors">
-              <Cloud size={20} />
-            </div>
+            <button
+              onClick={() => syncData()}
+              disabled={syncStatus === 'syncing'}
+              className={`p-2 rounded-full transition-all duration-300 hover:scale-110 active:scale-95 flex items-center justify-center outline-none focus:ring-2 focus:ring-white/20 ${syncStatus === 'syncing'
+                  ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 animate-pulse"
+                  : syncStatus === 'error'
+                    ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200"
+                    : syncStatus === 'offline'
+                      ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 hover:bg-amber-200"
+                      : "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200"
+                }`}
+            >
+              <Cloud
+                size={20}
+                className={syncStatus === 'syncing' ? "animate-spin-slow" : ""}
+              />
+            </button>
           )}
         </div>
 
@@ -258,7 +260,18 @@ const Header: React.FC<HeaderProps> = ({ darkMode, toggleDarkMode }) => {
       {isMobileMenuOpen && (
         <div className="absolute top-16 left-0 w-full bg-white dark:bg-slate-900 shadow-xl border-b border-gray-200 dark:border-slate-700 md:hidden animate-fade-in z-40 max-h-[calc(100vh-4rem)] overflow-y-auto">
           <nav className="flex flex-col p-4 space-y-2">
-            <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Menu Navigazione</div>
+            <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 flex justify-between items-center">
+              <span>Menu Navigazione</span>
+              {isCloudConfigured && (
+                <button
+                  onClick={() => { syncData(); setIsMobileMenuOpen(false); }}
+                  className={`flex items-center space-x-1 text-[10px] px-2 py-1 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 transition-colors ${syncStatus === 'syncing' ? 'animate-pulse' : ''}`}
+                >
+                  <Cloud size={12} className={syncStatus === 'syncing' ? 'animate-spin-slow' : ''} />
+                  <span>{syncStatus === 'syncing' ? 'Sincronizzazione...' : 'Sync Ora'}</span>
+                </button>
+              )}
+            </div>
             {navItems.map((item) => (
               <button
                 key={item.to}
