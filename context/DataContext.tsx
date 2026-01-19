@@ -332,40 +332,58 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // --- 3. SESSIONS ---
         if (sessions.length > 0) {
           console.log(`[DataContext] Syncing ${sessions.length} work sessions...`);
-          // SMART MERGE LOGIC for intervention_ids
-          const { data: remoteSessions } = await supabase.from('work_sessions').select('id, intervention_ids');
-
-          const payload = sessions.map(s => {
-            let finalInterventionIds = s.interventionIds;
-
-            if (remoteSessions) {
-              const remote = remoteSessions.find(rs => rs.id === s.id);
-              if (remote && Array.isArray(remote.intervention_ids)) {
-                // Merge: Unique set of local and remote IDs
-                finalInterventionIds = Array.from(new Set([...remote.intervention_ids, ...s.interventionIds]));
+          try {
+            // SMART MERGE LOGIC for intervention_ids - wrapped in try-catch
+            let remoteSessions = null;
+            try {
+              const result = await supabase.from('work_sessions').select('id, intervention_ids');
+              remoteSessions = result.data;
+              if (result.error) {
+                console.warn('[DataContext] Could not fetch remote sessions for merge:', result.error);
               }
+            } catch (fetchErr) {
+              console.warn('[DataContext] Error fetching remote sessions, proceeding without merge:', fetchErr);
             }
 
-            return {
-              id: s.id,
-              client_id: s.clientId,
-              statustext: s.status,
-              start_timestamp: s.startTimestamp,
-              scheduled_date: s.scheduledDate,
-              assigned_tech_ids: s.assignedTechIds,
-              assigned_tech_name: s.assignedTechName,
-              general_notes: s.generalNotes,
-              tech_signature: s.technicianSignature,
-              tech_signature_img: s.technicianSignatureImage,
-              client_signature: s.clientSignature,
-              client_signature_img: s.clientSignatureImage,
-              intervention_ids: finalInterventionIds,
-              updated_at: s.updatedAt || new Date().toISOString(),
-              json_content: { ...s, interventionIds: finalInterventionIds }
-            };
-          });
-          const { error } = await supabase.from('work_sessions').upsert(payload);
-          if (error) throw error;
+            const payload = sessions.map(s => {
+              let finalInterventionIds = s.interventionIds;
+
+              if (remoteSessions) {
+                const remote = remoteSessions.find(rs => rs.id === s.id);
+                if (remote && Array.isArray(remote.intervention_ids)) {
+                  // Merge: Unique set of local and remote IDs
+                  finalInterventionIds = Array.from(new Set([...remote.intervention_ids, ...s.interventionIds]));
+                }
+              }
+
+              return {
+                id: s.id,
+                client_id: s.clientId,
+                statustext: s.status,
+                start_timestamp: s.startTimestamp,
+                scheduled_date: s.scheduledDate,
+                assigned_tech_ids: s.assignedTechIds,
+                assigned_tech_name: s.assignedTechName,
+                general_notes: s.generalNotes,
+                tech_signature: s.technicianSignature,
+                tech_signature_img: s.technicianSignatureImage,
+                client_signature: s.clientSignature,
+                client_signature_img: s.clientSignatureImage,
+                intervention_ids: finalInterventionIds,
+                updated_at: s.updatedAt || new Date().toISOString(),
+                json_content: { ...s, interventionIds: finalInterventionIds }
+              };
+            });
+
+            const { error } = await supabase.from('work_sessions').upsert(payload);
+            if (error) {
+              console.error('[DataContext] Error upserting work_sessions:', error);
+              throw error;
+            }
+          } catch (sessionErr) {
+            console.error('[DataContext] Critical error syncing work_sessions, skipping:', sessionErr);
+            // Don't throw - continue with other data
+          }
         }
 
         // --- 4. QUOTATIONS ---
