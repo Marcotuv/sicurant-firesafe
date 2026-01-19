@@ -9,6 +9,13 @@ export const useAutoSync = (intervalMs: number = 5 * 60 * 1000) => {
 
     const performSync = async () => {
         if (!navigator.onLine || !user) return;
+
+        // Don't start a new sync if one is already in progress
+        if (syncStatus === 'syncing') {
+            console.log('[AutoSync] Sync already in progress, skipping...');
+            return;
+        }
+
         console.log('[AutoSync] Starting sync...');
         try {
             await syncData();
@@ -43,7 +50,7 @@ export const useAutoSync = (intervalMs: number = 5 * 60 * 1000) => {
             window.removeEventListener('online', handleSyncTrigger);
             window.removeEventListener('visibilitychange', handleSyncTrigger);
         };
-    }, [intervalMs, syncData, downloadCloudData, user]);
+    }, [intervalMs, syncData, downloadCloudData, user, syncStatus]);
 
     return { performSync };
 };
