@@ -274,190 +274,212 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const syncData = useCallback(async (options: { forceRemoteMerge?: boolean } = {}): Promise<{ success: boolean; message: string }> => {
     return safeSync(async () => {
+      console.log('[DataContext] Inizio sincronizzazione globale...');
       setSyncStatus('syncing');
+
       const supabase = globalSupabase;
-      if (!supabase) throw new Error("Cloud non configurato correttamente.");
-
-      // --- 1. INTERVENTIONS ---
-      if (interventions.length > 0) {
-        const payload = interventions.map(i => ({
-          id: i.id,
-          client_id: i.clientId,
-          asset_id: i.assetId,
-          timestamp: i.timestamp,
-          services: i.services,
-          anomalies: i.anomalies,
-          notes: i.notes,
-          photos: i.photos,
-          internal_comments: i.internalComments,
-          technician_signature: i.technicianSignature,
-          technician_signature_img: i.technicianSignatureImage,
-          client_signature: i.clientSignature,
-          client_signature_img: i.clientSignatureImage,
-          updated_at: i.updatedAt || new Date().toISOString(),
-          json_content: i
-        }));
-        const { error } = await supabase.from('interventions').upsert(payload);
-        if (error) throw error;
+      if (!supabase) {
+        setSyncStatus('error');
+        throw new Error("Cloud non configurato correttamente.");
       }
 
-      // --- 2. ASSETS ---
-      if (assets.length > 0) {
-        const payload = assets.map(a => ({
-          id: a.id,
-          client_id: a.clientId,
-          tipo: a.tipo,
-          matricola: a.matricola,
-          ubicazione: a.ubicazione,
-          scadenza: a.scadenza,
-          data_ultima_revisione: a.dataUltimaRevisione,
-          categoria: a.categoria,
-          note: a.note,
-          specific_data: a.specificData,
-          updated_at: a.updatedAt || new Date().toISOString(),
-          json_content: a
-        }));
-        const { error } = await supabase.from('assets').upsert(payload);
-        if (error) throw error;
-      }
-
-      // --- 3. SESSIONS ---
-      if (sessions.length > 0) {
-        // SMART MERGE LOGIC for intervention_ids
-        const { data: remoteSessions } = await supabase.from('work_sessions').select('id, intervention_ids');
-
-        const payload = sessions.map(s => {
-          let finalInterventionIds = s.interventionIds;
-
-          if (remoteSessions) {
-            const remote = remoteSessions.find(rs => rs.id === s.id);
-            if (remote && Array.isArray(remote.intervention_ids)) {
-              // Merge: Unique set of local and remote IDs
-              finalInterventionIds = Array.from(new Set([...remote.intervention_ids, ...s.interventionIds]));
-            }
-          }
-
-          return {
-            id: s.id,
-            client_id: s.clientId,
-            statustext: s.status,
-            start_timestamp: s.startTimestamp,
-            scheduled_date: s.scheduledDate,
-            assigned_tech_ids: s.assignedTechIds,
-            assigned_tech_name: s.assignedTechName,
-            general_notes: s.generalNotes,
-            tech_signature: s.technicianSignature,
-            tech_signature_img: s.technicianSignatureImage,
-            client_signature: s.clientSignature,
-            client_signature_img: s.clientSignatureImage,
-            intervention_ids: finalInterventionIds,
-            updated_at: s.updatedAt || new Date().toISOString(),
-            json_content: { ...s, interventionIds: finalInterventionIds }
-          };
-        });
-        const { error } = await supabase.from('work_sessions').upsert(payload);
-        if (error) throw error;
-      }
-
-      // --- 4. QUOTATIONS ---
-      if (quotations.length > 0) {
-        const payload = quotations.map(q => ({
-          id: q.id,
-          number: q.number,
-          type: q.type,
-          category: q.category,
-          client_id: q.clientId,
-          status: q.status,
-          amount: q.amount,
-          date: q.date,
-          expiry_date: q.expiryDate,
-          items: q.items,
-          notes: q.notes,
-          updated_at: q.updatedAt || new Date().toISOString(),
-          json_content: q
-        }));
-        const { error } = await supabase.from('quotations').upsert(payload);
-        if (error) throw error;
-      }
-
-      // --- 5. ATTENDANCE ---
-      if (attendanceHistory.length > 0) {
-        const payload = attendanceHistory.filter(r => !r.synced).map(r => ({
-          id: r.id,
-          user_id: r.userId,
-          user_name: r.userName,
-          type: r.type,
-          status: r.status,
-          timestamp: r.timestamp,
-          latitude: r.latitude,
-          longitude: r.longitude,
-          notes: r.notes,
-          approved_by: r.approvedBy,
-          approval_timestamp: r.approvalTimestamp,
-          synced: true
-        }));
-
-        if (payload.length > 0) {
-          const { error } = await supabase.from('attendance_history').upsert(payload);
-          if (error) throw error;
-          // Aggiorna stato locale synced=true
-          setAttendanceHistory(prev => prev.map(loc => {
-            const sent = payload.find(p => p.id === loc.id);
-            return sent ? { ...loc, synced: true } : loc;
+      try {
+        // --- 1. INTERVENTIONS ---
+        if (interventions.length > 0) {
+          console.log(`[DataContext] Syncing ${interventions.length} interventions...`);
+          const payload = interventions.map(i => ({
+            id: i.id,
+            client_id: i.clientId,
+            asset_id: i.assetId,
+            timestamp: i.timestamp,
+            services: i.services,
+            anomalies: i.anomalies,
+            notes: i.notes,
+            photos: i.photos,
+            internal_comments: i.internalComments,
+            technician_signature: i.technicianSignature,
+            technician_signature_img: i.technicianSignatureImage,
+            client_signature: i.clientSignature,
+            client_signature_img: i.clientSignatureImage,
+            updated_at: i.updatedAt || new Date().toISOString(),
+            json_content: i
           }));
-        }
-      }
-
-      // --- 6. ARTICLES ---
-      if (articles.length > 0) {
-        const payload = articles.map(a => ({
-          id: a.id,
-          categoria: a.categoria,
-          descrizione: a.descrizione,
-          note: a.note,
-          updated_at: a.updatedAt || new Date().toISOString()
-        }));
-        const { error } = await supabase.from('articles').upsert(payload);
-        if (error) throw error;
-      }
-
-      // --- 7. CLIENTS (Anagrafiche) ---
-      if (clients.length > 0) {
-        const payload = clients.map(client => ({
-          id: client.id,
-          nome: client.nome,
-          indirizzo: client.indirizzo,
-          piva: client.piva,
-          codice_univoco: client.codiceUnivoco,
-          pec: client.pec,
-          referente: client.referente,
-          telefono: client.telefono,
-          email: client.email,
-          commessa: client.commessa,
-          id_commessa: client.idCommessa,
-          struttura: client.struttura,
-          indirizzo_struttura: client.indirizzoStruttura,
-          id_struttura: client.idStruttura,
-          referente_commessa: client.referenteCommessa,
-          recapito_commessa: client.recapitoCommessa,
-          pagamento: client.pagamento,
-          note: client.note,
-          updated_at: client.updatedAt || new Date().toISOString(),
-          json_content: client
-        }));
-
-        // Batching for clients
-        const BATCH_SIZE = 500;
-        for (let i = 0; i < payload.length; i += BATCH_SIZE) {
-          const batch = payload.slice(i, i + BATCH_SIZE);
-          const { error } = await supabase.from('clients').upsert(batch);
+          const { error } = await supabase.from('interventions').upsert(payload);
           if (error) throw error;
         }
-      }
 
-      await refreshClients();
-      setSyncStatus('synced');
-      setLastSyncTime(new Date().toLocaleTimeString());
+        // --- 2. ASSETS ---
+        if (assets.length > 0) {
+          console.log(`[DataContext] Syncing ${assets.length} assets...`);
+          const payload = assets.map(a => ({
+            id: a.id,
+            client_id: a.clientId,
+            tipo: a.tipo,
+            matricola: a.matricola,
+            ubicazione: a.ubicazione,
+            scadenza: a.scadenza,
+            data_ultima_revisione: a.dataUltimaRevisione,
+            categoria: a.categoria,
+            note: a.note,
+            specific_data: a.specificData,
+            updated_at: a.updatedAt || new Date().toISOString(),
+            json_content: a
+          }));
+          const { error } = await supabase.from('assets').upsert(payload);
+          if (error) throw error;
+        }
+
+        // --- 3. SESSIONS ---
+        if (sessions.length > 0) {
+          console.log(`[DataContext] Syncing ${sessions.length} work sessions...`);
+          // SMART MERGE LOGIC for intervention_ids
+          const { data: remoteSessions } = await supabase.from('work_sessions').select('id, intervention_ids');
+
+          const payload = sessions.map(s => {
+            let finalInterventionIds = s.interventionIds;
+
+            if (remoteSessions) {
+              const remote = remoteSessions.find(rs => rs.id === s.id);
+              if (remote && Array.isArray(remote.intervention_ids)) {
+                // Merge: Unique set of local and remote IDs
+                finalInterventionIds = Array.from(new Set([...remote.intervention_ids, ...s.interventionIds]));
+              }
+            }
+
+            return {
+              id: s.id,
+              client_id: s.clientId,
+              statustext: s.status,
+              start_timestamp: s.startTimestamp,
+              scheduled_date: s.scheduledDate,
+              assigned_tech_ids: s.assignedTechIds,
+              assigned_tech_name: s.assignedTechName,
+              general_notes: s.generalNotes,
+              tech_signature: s.technicianSignature,
+              tech_signature_img: s.technicianSignatureImage,
+              client_signature: s.clientSignature,
+              client_signature_img: s.clientSignatureImage,
+              intervention_ids: finalInterventionIds,
+              updated_at: s.updatedAt || new Date().toISOString(),
+              json_content: { ...s, interventionIds: finalInterventionIds }
+            };
+          });
+          const { error } = await supabase.from('work_sessions').upsert(payload);
+          if (error) throw error;
+        }
+
+        // --- 4. QUOTATIONS ---
+        if (quotations.length > 0) {
+          console.log(`[DataContext] Syncing ${quotations.length} quotations...`);
+          const payload = quotations.map(q => ({
+            id: q.id,
+            number: q.number,
+            type: q.type,
+            category: q.category,
+            client_id: q.clientId,
+            status: q.status,
+            amount: q.amount,
+            date: q.date,
+            expiry_date: q.expiryDate,
+            items: q.items,
+            notes: q.notes,
+            updated_at: q.updatedAt || new Date().toISOString(),
+            json_content: q
+          }));
+          const { error } = await supabase.from('quotations').upsert(payload);
+          if (error) throw error;
+        }
+
+        // --- 5. ATTENDANCE ---
+        if (attendanceHistory.length > 0) {
+          const unsyncedAttendance = attendanceHistory.filter(r => !r.synced);
+          if (unsyncedAttendance.length > 0) {
+            console.log(`[DataContext] Syncing ${unsyncedAttendance.length} attendance records...`);
+            const payload = unsyncedAttendance.map(r => ({
+              id: r.id,
+              user_id: r.userId,
+              user_name: r.userName,
+              type: r.type,
+              status: r.status,
+              timestamp: r.timestamp,
+              latitude: r.latitude,
+              longitude: r.longitude,
+              notes: r.notes,
+              approved_by: r.approvedBy,
+              approval_timestamp: r.approvalTimestamp,
+              synced: true
+            }));
+
+            const { error } = await supabase.from('attendance_history').upsert(payload);
+            if (error) throw error;
+
+            // Aggiorna stato locale synced=true
+            setAttendanceHistory(prev => prev.map(loc => {
+              const sent = payload.find(p => p.id === loc.id);
+              return sent ? { ...loc, synced: true } : loc;
+            }));
+          }
+        }
+
+        // --- 6. ARTICLES ---
+        if (articles.length > 0) {
+          console.log(`[DataContext] Syncing ${articles.length} articles...`);
+          const payload = articles.map(a => ({
+            id: a.id,
+            categoria: a.categoria,
+            descrizione: a.descrizione,
+            note: a.note,
+            updated_at: a.updatedAt || new Date().toISOString()
+          }));
+          const { error } = await supabase.from('articles').upsert(payload);
+          if (error) throw error;
+        }
+
+        // --- 7. CLIENTS (Anagrafiche) ---
+        if (clients.length > 0) {
+          console.log(`[DataContext] Syncing ${clients.length} clients...`);
+          const payload = clients.map(client => ({
+            id: client.id,
+            nome: client.nome,
+            indirizzo: client.indirizzo,
+            piva: client.piva,
+            codice_univoco: client.codiceUnivoco,
+            pec: client.pec,
+            referente: client.referente,
+            telefono: client.telefono,
+            email: client.email,
+            commessa: client.commessa,
+            id_commessa: client.idCommessa,
+            struttura: client.struttura,
+            indirizzo_struttura: client.indirizzoStruttura,
+            id_struttura: client.idStruttura,
+            referente_commessa: client.referenteCommessa,
+            recapito_commessa: client.recapitoCommessa,
+            pagamento: client.pagamento,
+            note: client.note,
+            updated_at: client.updatedAt || new Date().toISOString(),
+            json_content: client
+          }));
+
+          // Batching for clients
+          const BATCH_SIZE = 500;
+          for (let i = 0; i < payload.length; i += BATCH_SIZE) {
+            console.log(`[DataContext] Uploading clients batch ${Math.floor(i / BATCH_SIZE) + 1}...`);
+            const batch = payload.slice(i, i + BATCH_SIZE);
+            const { error } = await supabase.from('clients').upsert(batch);
+            if (error) throw error;
+          }
+        }
+
+        console.log('[DataContext] Fine caricamento dati, rinfresco anagrafiche...');
+        await refreshClients();
+        setSyncStatus('synced');
+        setLastSyncTime(new Date().toLocaleTimeString());
+      } catch (err) {
+        console.error('[DataContext] Errore critico durante syncData:', err);
+        setSyncStatus('error');
+        throw err; // Rilancia per safeSync
+      }
     });
   }, [supabaseConfig, interventions, assets, sessions, quotations, attendanceHistory, articles, clients, safeSync, refreshClients]);
 
