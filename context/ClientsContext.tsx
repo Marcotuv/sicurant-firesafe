@@ -190,10 +190,7 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
         );
       });
 
-      if (isExactDuplicate) isDuplicate = true;
-      else isDuplicate = false;
-
-      if (!isDuplicate) {
+      if (!isExactDuplicate) {
         uniqueNewClients.push(client);
       } else {
         skippedCount++;
