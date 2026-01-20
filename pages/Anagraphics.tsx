@@ -48,7 +48,7 @@ const Anagraphics: React.FC = () => {
         clients, articles, assets, services, anomalies, checklistTemplates, categoryAnomalies,
         deleteClient, deleteArticle, deleteAsset, deleteService, deleteAnomaly,
         addClient, updateClient, addClientsBulk, addArticle, addArticlesBulk, addAsset, addAssetsBulk,
-        addService, addAnomaly, updateChecklistTemplate, updateCategoryAnomaly, checkConflict
+        addService, addAnomaly, updateChecklistTemplate, updateCategoryAnomaly, checkConflict, checkDuplicateClient
     } = useData();
 
     // 1. ALL STATE HOOKS AT THE TOP
@@ -270,6 +270,16 @@ const Anagraphics: React.FC = () => {
         }
 
         const clientData = { ...newClient } as Client;
+
+        // Content Duplication Check
+        if (editingClientId === null && !force) {
+            const { isDuplicate, reason } = checkDuplicateClient(newClient);
+            if (isDuplicate) {
+                if (!confirm(`ATTENZIONE: Possibile duplicato rilevato.\n${reason}\n\nVuoi procedere comunque con l'inserimento?`)) {
+                    return;
+                }
+            }
+        }
 
         // Conflict check for existing clients
         if (editingClientId !== null && !force) {

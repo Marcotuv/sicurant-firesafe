@@ -278,6 +278,7 @@ export interface DataContextType {
   exportData: () => void;
   importData: (jsonData: string) => boolean;
   clearAllDataLocal: () => Promise<void>;
+  checkDuplicateClient: (client: Partial<Client>) => { isDuplicate: boolean; reason?: string };
 }
 
 export interface UserProfile {

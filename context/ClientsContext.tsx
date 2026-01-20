@@ -34,16 +34,21 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
         const stored = await get('clients');
         if (stored && Array.isArray(stored)) {
           // MIGRAZIONE: Se manca il flag 'synced', lo imposto a true (assumo siano già in cloud)
-          const migrated = stored.map(c => ({
+          const migratedAndDeduped = stored.map((c: any) => ({
             ...c,
-            synced: c.synced !== undefined ? c.synced : true
+            synced: typeof c.synced === 'boolean' ? c.synced : true // Default to true for legacy data
           }));
 
-          setClients(migrated);
+          // Deduplicate on load (fix for potential previous duplication bugs)
+          const uniqueClientsMap = new Map<string, Client>();
+          migratedAndDeduped.forEach((c: Client) => uniqueClientsMap.set(String(c.id), c));
+          const finalClients = Array.from(uniqueClientsMap.values());
 
-          // Se ho fatto modifiche di migrazione, salvo subito
-          if (JSON.stringify(stored) !== JSON.stringify(migrated)) {
-            set('clients', migrated).catch(console.warn);
+          setClients(finalClients);
+
+          // Se ho fatto modifiche di migrazione o deduplicazione, salvo subito
+          if (JSON.stringify(stored) !== JSON.stringify(finalClients)) {
+            set('clients', finalClients).catch(console.warn);
           }
         } else {
           setClients(INITIAL_CLIENTS);
@@ -157,15 +162,44 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, []);
 
   const addClientsBulk = useCallback(async (newClients: Client[]) => {
+    // FILTER DUPLICATES BEFORE ADDING
+    const uniqueNewClients: Client[] = [];
+    let skippedCount = 0;
+
+    for (const client of newClients) {
+      // Reuse the check logic
+      let isDuplicate = false;
+
+      // Check local clients for duplication
+      if (client.piva) {
+        if (clients.some(c => c.piva && c.piva.toLowerCase() === client.piva?.toLowerCase())) isDuplicate = true;
+      } else if (client.nome) {
+        if (clients.some(c => c.nome.toLowerCase() === client.nome?.toLowerCase())) isDuplicate = true;
+      }
+
+      if (!isDuplicate) {
+        uniqueNewClients.push(client);
+      } else {
+        skippedCount++;
+      }
+    }
+
+    if (uniqueNewClients.length === 0) {
+      if (skippedCount > 0) alert(`Tutti i ${skippedCount} clienti importati sono già presenti nel database.`);
+      return;
+    }
+
+    if (skippedCount > 0) {
+      alert(`${skippedCount} clienti sono stati saltati perché già presenti. Caricamento di ${uniqueNewClients.length} nuovi clienti...`);
+    }
+
     // Assume bulk import is DIRTY unless we know otherwise. 
-    // If it's a restore from backup, maybe dirty? 
-    // Let's safe set to dirty so they get synced.
-    const dirtyClients = newClients.map(c => ({ ...c, synced: false }));
+    const dirtyClients = uniqueNewClients.map(c => ({ ...c, synced: false }));
     setClients(prev => [...prev, ...dirtyClients]);
 
-    if (supabase && newClients.length > 0) {
+    if (supabase && uniqueNewClients.length > 0) {
       const timestamp = new Date().toISOString();
-      const payloads = newClients.map(client => ({
+      const payloads = uniqueNewClients.map(client => ({
         id: client.id,
         nome: client.nome,
         indirizzo: client.indirizzo,
@@ -201,11 +235,27 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       // If successful, mark all as clean
       setClients(prev => {
-        const ids = new Set(newClients.map(c => c.id));
+        const ids = new Set(uniqueNewClients.map(c => c.id));
         return prev.map(c => ids.has(c.id) ? { ...c, synced: true } : c);
       });
     }
 
+  }, [clients]);
+
+  const checkDuplicateClient = useCallback((newClient: Partial<Client>) => {
+    // 1. Check P.IVA / Codice Fiscale (Strong signal)
+    if (newClient.piva) {
+      const match = clients.find(c => c.piva && c.piva.toLowerCase() === newClient.piva?.toLowerCase() && c.id !== newClient.id);
+      if (match) return { isDuplicate: true, reason: `Esiste già un cliente con P.IVA: ${newClient.piva} (${match.nome})` };
+    }
+
+    // 2. Check Name (Strong signal for companies without PIVA)
+    if (newClient.nome) {
+      const match = clients.find(c => c.nome.toLowerCase() === newClient.nome?.toLowerCase() && c.id !== newClient.id);
+      if (match) return { isDuplicate: true, reason: `Esiste già un cliente con Ragione Sociale: ${newClient.nome}` };
+    }
+
+    return { isDuplicate: false };
   }, [clients]);
 
   const refreshClients = useCallback(async (since?: string) => {
@@ -246,19 +296,32 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
       }));
 
       setClients(prev => {
-        const merged = [...prev];
+        // use Map to ensure uniqueness by ID (converted to string to handle number vs string type mismatches)
+        const clientMap = new Map<string, Client>();
+
+        // 1. Load local clients first
+        prev.forEach(c => clientMap.set(String(c.id), c));
+
+        // 2. Merge remote clients
         remoteClients.forEach(rc => {
-          const idx = merged.findIndex(bc => bc.id === rc.id);
-          if (idx === -1) merged.push(rc);
-          else {
-            const localUpdatedAt = merged[idx].updatedAt;
-            // Update only if remote is newer
-            if (!localUpdatedAt || (rc.updatedAt && new Date(rc.updatedAt) > new Date(localUpdatedAt))) {
-              merged[idx] = rc;
+          const idStr = String(rc.id);
+          const local = clientMap.get(idStr);
+
+          if (!local) {
+            // New from cloud
+            clientMap.set(idStr, rc);
+          } else {
+            // Conflict Resolution: Remote Wins if newer or if local has no timestamp
+            const localDate = local.updatedAt ? new Date(local.updatedAt) : new Date(0);
+            const remoteDate = rc.updatedAt ? new Date(rc.updatedAt) : new Date(0);
+
+            if (remoteDate > localDate) {
+              clientMap.set(idStr, rc);
             }
           }
         });
-        return merged;
+
+        return Array.from(clientMap.values());
       });
     }
   }, []);
@@ -277,8 +340,9 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
     deleteClient,
     addClientsBulk,
     refreshClients,
-    clearClientsData
-  }), [clients, loading, error, addClient, updateClient, deleteClient, addClientsBulk, refreshClients, clearClientsData]);
+    clearClientsData,
+    checkDuplicateClient
+  }), [clients, loading, error, addClient, updateClient, deleteClient, addClientsBulk, refreshClients, clearClientsData, checkDuplicateClient]);
 
   return (
     <ClientsContext.Provider value={value}>
