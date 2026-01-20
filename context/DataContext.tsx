@@ -12,6 +12,7 @@ import { useClients } from './ClientsContext';
 import { useSyncManager } from '../hooks/useSyncManager';
 import { getLocalDate, getTimestamp } from '../utils/dates';
 import { supabase as globalSupabase } from '../config/supabase';
+import { fetchAll } from '../utils/supabaseHelpers';
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
@@ -518,8 +519,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setIsLoading(true);
 
-      const { data: assetsData } = await supabase.from('assets').select('*');
-      if (assetsData) {
+      const { data: assetsData, error: assetsError } = await fetchAll<any>(supabase.from('assets').select('*'));
+      if (assetsData && !assetsError) {
         const cloudAssets: Asset[] = assetsData.map((d: any) => ({
           id: d.id, clientId: d.client_id, tipo: d.tipo, matricola: d.matricola, ubicazione: d.ubicazione,
           scadenza: d.scadenza, dataUltimaRevisione: d.data_ultima_revisione, categoria: d.categoria,
@@ -551,8 +552,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         intQuery = intQuery.gte('timestamp', dateLimit.toISOString());
       }
 
-      const { data: intData } = await intQuery;
-      if (intData) {
+      const { data: intData, error: intError } = await fetchAll<any>(intQuery);
+      if (intData && !intError) {
         const cloudInterventions: Intervention[] = intData.map((d: any) => ({
           id: d.id, clientId: d.client_id, clientName: '', assetId: d.asset_id, assetName: '',
           timestamp: d.timestamp, services: d.services, anomalies: d.anomalies, notes: d.notes,
@@ -574,8 +575,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         });
       }
 
-      const { data: sessData } = await supabase.from('work_sessions').select('*');
-      if (sessData) {
+      const { data: sessData, error: sessError } = await fetchAll<any>(supabase.from('work_sessions').select('*'));
+      if (sessData && !sessError) {
         const cloudSessions: WorkSession[] = sessData.map((d: any) => ({
           id: d.id, clientId: d.client_id, startTimestamp: d.start_timestamp, status: d.statustext as any,
           scheduledDate: d.scheduled_date, assignedTechIds: d.assigned_tech_ids, assignedTechName: d.assigned_tech_name,

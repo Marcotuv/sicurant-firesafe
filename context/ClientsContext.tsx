@@ -4,6 +4,7 @@ import { Client } from '../types';
 import { INITIAL_CLIENTS } from '../lib/constants';
 // @ts-ignore
 import { get, set } from 'idb-keyval';
+import { fetchAll } from '../utils/supabaseHelpers';
 
 interface ClientsContextType {
   clients: Client[];
@@ -202,7 +203,10 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const refreshClients = useCallback(async () => {
     if (!supabase) return;
-    const { data, error } = await supabase.from('clients').select('*');
+
+    // Use pagination to fetch ALL clients
+    const { data, error } = await fetchAll<any>(supabase.from('clients').select('*'));
+
     if (!error && data) {
       const remoteClients: Client[] = data.map((d: any) => ({
         id: d.id,
