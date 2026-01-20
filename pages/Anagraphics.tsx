@@ -219,6 +219,74 @@ const Anagraphics: React.FC = () => {
     }, [canAccess, navigate]);
 
 
+    // MAINTENANCE / DUPLICATE TOOL
+    const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
+    const [duplicateGroups, setDuplicateGroups] = useState<{ key: string, clients: Client[] }[]>([]);
+
+    const scanDuplicates = () => {
+        const pivaMap = new Map<string, Client[]>();
+        const nameMap = new Map<string, Client[]>();
+
+        clients.forEach(c => {
+            if (c.piva) {
+                const k = c.piva.toLowerCase().trim();
+                if (!pivaMap.has(k)) pivaMap.set(k, []);
+                pivaMap.get(k)?.push(c);
+            } else if (c.nome) {
+                const k = c.nome.toLowerCase().trim();
+                if (!nameMap.has(k)) nameMap.set(k, []);
+                nameMap.get(k)?.push(c);
+            }
+        });
+
+        const groups: { key: string, clients: Client[] }[] = [];
+
+        // Collect P.IVA duplicates
+        pivaMap.forEach((list, key) => {
+            if (list.length > 1) groups.push({ key: `P.IVA: ${key}`, clients: list });
+        });
+
+        // Collect Name duplicates (only if they constitute a group > 1)
+        nameMap.forEach((list, key) => {
+            if (list.length > 1) groups.push({ key: `Nome: ${list[0].nome}`, clients: list });
+        });
+
+        setDuplicateGroups(groups);
+    };
+
+    const consolidateDuplicates = async () => {
+        if (!confirm(`Sei sicuro di voler consolidare ${duplicateGroups.length} gruppi di duplicati?\nQuesta operazione eliminerà definitivamente ${duplicateGroups.reduce((acc, g) => acc + g.clients.length - 1, 0)} record obsoleti.`)) return;
+
+        let deletedCount = 0;
+        for (const group of duplicateGroups) {
+            // Sort by updated (newest first) or ID (highest first)
+            const sorted = [...group.clients].sort((a, b) => {
+                const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+                const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+                return dateB - dateA || b.id - a.id;
+            });
+
+            // Keep the first (newest), delete the rest
+            const [keeper, ...toDelete] = sorted;
+            console.log(`[Consolidate] Keeping ${keeper.nome} (${keeper.id}), deleting ${toDelete.length} others.`);
+
+            for (const victim of toDelete) {
+                await deleteClient(victim.id);
+                deletedCount++;
+            }
+        }
+
+        alert(`Pulizia completata! eliminati ${deletedCount} duplicati.`);
+        setIsMaintenanceModalOpen(false);
+        // Refresh scan to confirm
+        setDuplicateGroups([]);
+    };
+
+    useEffect(() => {
+        if (isMaintenanceModalOpen) scanDuplicates();
+    }, [isMaintenanceModalOpen, clients]);
+
+
     // --- ACCESS DENIED RENDER ---
     if (!canAccess) {
         return (
@@ -232,6 +300,9 @@ const Anagraphics: React.FC = () => {
             </div>
         );
     }
+    // ... (rest of render)
+    // AND INSERT UI BUTTON IN HEADER
+
 
     const handleOpenClientModal = (client?: Client) => {
         setValidationErrors({});
@@ -631,6 +702,7 @@ const Anagraphics: React.FC = () => {
                         <div className="flex justify-between items-center bg-gray-50 dark:bg-slate-900/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700 mb-2">
                             <h3 className="font-black text-lg text-gray-800 dark:text-gray-200 uppercase tracking-tight">Elenco Clienti <span className="text-primary-500 text-sm ml-2 font-medium">({displayClients.length} totali)</span></h3>
                             <div className="flex gap-2">
+                                <button onClick={() => setIsMaintenanceModalOpen(true)} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center shadow-lg transition-transform active:scale-95" title="Trova e rimuovi duplicati"><AlertTriangle size={16} className="mr-2" /> Manutenzione</button>
                                 <button onClick={handleImportClick} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center shadow-lg transition-transform active:scale-95"><Upload size={16} className="mr-2" /> Importa</button>
                                 <button onClick={() => handleOpenClientModal()} className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center shadow-lg transition-transform active:scale-95"><Plus size={16} className="mr-2" /> Nuovo</button>
                             </div>
@@ -1134,6 +1206,65 @@ const Anagraphics: React.FC = () => {
                     setIsConflictModalOpen(false);
                 }}
             />
+            {/* MAINTENANCE MODAL */}
+            {isMaintenanceModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
+                    <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between mb-6 border-b border-gray-100 dark:border-slate-700 pb-2">
+                            <h3 className="font-bold text-lg text-gray-800 dark:text-gray-100 flex items-center">
+                                <AlertTriangle className="text-orange-500 mr-2" /> Manutenzione Anagrafiche
+                            </h3>
+                            <button onClick={() => setIsMaintenanceModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                Scansione automatica dei record duplicati basata su <strong>Partita IVA</strong> e <strong>Ragione Sociale</strong>.
+                                <br />Il consolidamento manterrà solo il record aggiornato più recentemente.
+                            </p>
+
+                            <div className="bg-gray-50 dark:bg-slate-900 rounded-lg p-4 border border-gray-200 dark:border-slate-700 min-h-[100px] max-h-[400px] overflow-y-auto">
+                                {duplicateGroups.length === 0 ? (
+                                    <div className="text-center text-gray-500 py-8">
+                                        <div className="inline-block p-3 bg-green-100 rounded-full mb-2">
+                                            <Database size={24} className="text-green-500" />
+                                        </div>
+                                        <p>Ottimo! Nessun duplicato trovato.</p>
+                                    </div>
+                                ) : (
+                                    <ul className="space-y-3">
+                                        {duplicateGroups.map((g, idx) => (
+                                            <li key={idx} className="bg-white dark:bg-slate-800 p-3 rounded border border-gray-200 dark:border-slate-700 shadow-sm">
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <strong className="text-red-500 text-sm">{g.key}</strong>
+                                                    <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">{g.clients.length} duplicati</span>
+                                                </div>
+                                                <div className="text-xs text-gray-500 pl-2 border-l-2 border-primary-200 space-y-1">
+                                                    {g.clients.map(c => (
+                                                        <div key={c.id} className="flex justify-between">
+                                                            <span>ID: {c.id} - {c.nome}</span>
+                                                            <span className="font-mono">{c.updatedAt ? new Date(c.updatedAt).toLocaleDateString() : 'N/A'}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-slate-700">
+                            <button onClick={() => setIsMaintenanceModalOpen(false)} className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-700 font-medium">Chiudi</button>
+                            {duplicateGroups.length > 0 && (
+                                <button onClick={consolidateDuplicates} className="flex items-center bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-bold shadow-lg transition-transform active:scale-95">
+                                    <Trash2 size={16} className="mr-2" /> Consolida e Pulisci
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
