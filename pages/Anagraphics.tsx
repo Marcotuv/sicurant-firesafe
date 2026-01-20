@@ -337,44 +337,50 @@ const Anagraphics: React.FC = () => {
     };
 
     const handleSaveClient = async (force: boolean = false) => {
-        const result = ClientSchema.safeParse(newClient);
-        if (!result.success) {
-            const errors: Record<string, string> = {};
-            result.error.issues.forEach(issue => {
-                if (issue.path[0]) errors[issue.path[0].toString()] = issue.message;
-            });
-            setValidationErrors(errors);
-            return;
-        }
+        try {
+            const result = ClientSchema.safeParse(newClient);
+            if (!result.success) {
+                const errors: Record<string, string> = {};
+                result.error.issues.forEach(issue => {
+                    if (issue.path[0]) errors[issue.path[0].toString()] = issue.message;
+                });
+                setValidationErrors(errors);
+                alert("Errore di validazione: controlla i campi evidenziati in rosso.");
+                return;
+            }
 
-        const clientData = { ...newClient } as Client;
+            const clientData = { ...newClient } as Client;
 
-        // Content Duplication Check
-        if (editingClientId === null && !force) {
-            const { isDuplicate, reason } = checkDuplicateClient(newClient);
-            if (isDuplicate) {
-                if (!confirm(`ATTENZIONE: Possibile duplicato rilevato.\n${reason}\n\nVuoi procedere comunque con l'inserimento?`)) {
+            // Content Duplication Check
+            if (editingClientId === null && !force) {
+                const { isDuplicate, reason } = checkDuplicateClient(newClient);
+                if (isDuplicate) {
+                    if (!confirm(`ATTENZIONE: Possibile duplicato rilevato.\n${reason}\n\nVuoi procedere comunque con l'inserimento?`)) {
+                        return;
+                    }
+                }
+            }
+
+            // Conflict check for existing clients
+            if (editingClientId !== null && !force) {
+                const hasConflict = await checkConflict('clients', editingClientId, clientData.updatedAt);
+                if (hasConflict) {
+                    setPendingClientData(clientData);
+                    setIsConflictModalOpen(true);
                     return;
                 }
             }
-        }
 
-        // Conflict check for existing clients
-        if (editingClientId !== null && !force) {
-            const hasConflict = await checkConflict('clients', editingClientId, clientData.updatedAt);
-            if (hasConflict) {
-                setPendingClientData(clientData);
-                setIsConflictModalOpen(true);
-                return;
+            if (editingClientId !== null) updateClient({ ...clientData, updatedAt: new Date().toISOString() });
+            else {
+                const maxId = clients.reduce((max, c) => Math.max(c.id, max), 0);
+                addClient({ ...clientData, id: maxId + 1, updatedAt: new Date().toISOString() });
             }
+            setIsClientModalOpen(false);
+        } catch (error: any) {
+            console.error("Save Client Error:", error);
+            alert("Errore durante il salvataggio: " + (error.message || "Errore sconosciuto"));
         }
-
-        if (editingClientId !== null) updateClient({ ...clientData, updatedAt: new Date().toISOString() });
-        else {
-            const maxId = clients.reduce((max, c) => Math.max(c.id, max), 0);
-            addClient({ ...clientData, id: maxId + 1, updatedAt: new Date().toISOString() });
-        }
-        setIsClientModalOpen(false);
     };
 
     const handleOpenArticleModal = () => { setNewArticle({ id: '', categoria: '', descrizione: '', note: '' }); setIsArticleModalOpen(true); };
