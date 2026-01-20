@@ -167,15 +167,31 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
     let skippedCount = 0;
 
     for (const client of newClients) {
-      // Reuse the check logic
-      let isDuplicate = false;
+      // Composite Duplicate Check
+      // 1. Base Identity
+      const isBaseMatch = (c: Client) => {
+        if (client.piva && c.piva && c.piva.toLowerCase() === client.piva.toLowerCase()) return true;
+        if (client.nome && c.nome && c.nome.toLowerCase() === client.nome.toLowerCase()) return true;
+        return false;
+      };
 
-      // Check local clients for duplication
-      if (client.piva) {
-        if (clients.some(c => c.piva && c.piva.toLowerCase() === client.piva?.toLowerCase())) isDuplicate = true;
-      } else if (client.nome) {
-        if (clients.some(c => c.nome.toLowerCase() === client.nome?.toLowerCase())) isDuplicate = true;
-      }
+      // 2. Detailed Match
+      const isExactDuplicate = clients.some(c => {
+        if (!isBaseMatch(c)) return false;
+
+        const normalize = (val?: string) => (val || '').trim().toLowerCase();
+
+        return (
+          normalize(c.commessa) === normalize(client.commessa) &&
+          normalize(c.idCommessa) === normalize(client.idCommessa) &&
+          normalize(c.struttura) === normalize(client.struttura) &&
+          normalize(c.indirizzoStruttura) === normalize(client.indirizzoStruttura) &&
+          normalize(c.idStruttura) === normalize(client.idStruttura)
+        );
+      });
+
+      if (isExactDuplicate) isDuplicate = true;
+      else isDuplicate = false;
 
       if (!isDuplicate) {
         uniqueNewClients.push(client);
@@ -243,16 +259,39 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [clients]);
 
   const checkDuplicateClient = useCallback((newClient: Partial<Client>) => {
-    // 1. Check P.IVA / Codice Fiscale (Strong signal)
-    if (newClient.piva) {
-      const match = clients.find(c => c.piva && c.piva.toLowerCase() === newClient.piva?.toLowerCase() && c.id !== newClient.id);
-      if (match) return { isDuplicate: true, reason: `Esiste già un cliente con P.IVA: ${newClient.piva} (${match.nome})` };
-    }
+    // COMPOSITE KEY CHECK:
+    // Identity (P.IVA or Name) + Location/Job Details (Commessa, Struttura, Address, ID Struttura)
+    // Only if ALL match is it considered a duplicate.
 
-    // 2. Check Name (Strong signal for companies without PIVA)
-    if (newClient.nome) {
-      const match = clients.find(c => c.nome.toLowerCase() === newClient.nome?.toLowerCase() && c.id !== newClient.id);
-      if (match) return { isDuplicate: true, reason: `Esiste già un cliente con Ragione Sociale: ${newClient.nome}` };
+    const isMatch = (c: Client) => {
+      // 1. Base Identity Check
+      const samePiva = newClient.piva && c.piva && c.piva.toLowerCase() === newClient.piva.toLowerCase();
+      const sameName = newClient.nome && c.nome && c.nome.toLowerCase() === newClient.nome.toLowerCase();
+
+      if (!samePiva && !sameName) return false;
+
+      // 2. ID Exclusion (don't match self)
+      if (c.id === newClient.id) return false;
+
+      // 3. Secondary Fields Match (Strict: undefined/null treated as empty string)
+      const normalize = (val?: string) => (val || '').trim().toLowerCase();
+
+      if (normalize(c.commessa) !== normalize(newClient.commessa)) return false;
+      if (normalize(c.idCommessa) !== normalize(newClient.idCommessa)) return false;
+      if (normalize(c.struttura) !== normalize(newClient.struttura)) return false;
+      if (normalize(c.indirizzoStruttura) !== normalize(newClient.indirizzoStruttura)) return false;
+      if (normalize(c.idStruttura) !== normalize(newClient.idStruttura)) return false; // Added requested field
+
+      return true;
+    };
+
+    const match = clients.find(isMatch);
+
+    if (match) {
+      return {
+        isDuplicate: true,
+        reason: `Esiste già un record identico (Stessa Anagrafica + Commessa + Struttura):\n${match.nome} (ID: ${match.id})`
+      };
     }
 
     return { isDuplicate: false };

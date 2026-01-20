@@ -224,31 +224,38 @@ const Anagraphics: React.FC = () => {
     const [duplicateGroups, setDuplicateGroups] = useState<{ key: string, clients: Client[] }[]>([]);
 
     const scanDuplicates = () => {
-        const pivaMap = new Map<string, Client[]>();
-        const nameMap = new Map<string, Client[]>();
+        // Group by Composite Key
+        const groupsMap = new Map<string, Client[]>();
+        const normalize = (val?: string) => (val || '').trim().toLowerCase();
 
         clients.forEach(c => {
-            if (c.piva) {
-                const k = c.piva.toLowerCase().trim();
-                if (!pivaMap.has(k)) pivaMap.set(k, []);
-                pivaMap.get(k)?.push(c);
-            } else if (c.nome) {
-                const k = c.nome.toLowerCase().trim();
-                if (!nameMap.has(k)) nameMap.set(k, []);
-                nameMap.get(k)?.push(c);
-            }
+            // 1. Determine Identity Key (P.IVA or Name)
+            // If neither exists, we skip (it's junk data or unrecognizable)
+            let identityKey = '';
+            if (c.piva) identityKey = `PIVA:${normalize(c.piva)}`;
+            else if (c.nome) identityKey = `NOME:${normalize(c.nome)}`;
+            else return;
+
+            // 2. Build Full Composite Key
+            // KEY: [IDENTITY] | [COMMESSA] | [ID_COMM] | [STRUTTURA] | [IND_STRUTTURA] | [ID_STRUTTURA]
+            const compositeKey = `${identityKey}|${normalize(c.commessa)}|${normalize(c.idCommessa)}|${normalize(c.struttura)}|${normalize(c.indirizzoStruttura)}|${normalize(c.idStruttura)}`;
+
+            if (!groupsMap.has(compositeKey)) groupsMap.set(compositeKey, []);
+            groupsMap.get(compositeKey)?.push(c);
         });
 
         const groups: { key: string, clients: Client[] }[] = [];
 
-        // Collect P.IVA duplicates
-        pivaMap.forEach((list, key) => {
-            if (list.length > 1) groups.push({ key: `P.IVA: ${key}`, clients: list });
-        });
+        groupsMap.forEach((list, key) => {
+            if (list.length > 1) {
+                // Readable Group Name for UI
+                const first = list[0];
+                let label = first.piva ? `P.IVA: ${first.piva}` : `Nome: ${first.nome}`;
+                if (first.commessa) label += ` | Comm: ${first.commessa}`;
+                if (first.struttura) label += ` | Struttura: ${first.struttura}`;
 
-        // Collect Name duplicates (only if they constitute a group > 1)
-        nameMap.forEach((list, key) => {
-            if (list.length > 1) groups.push({ key: `Nome: ${list[0].nome}`, clients: list });
+                groups.push({ key: label, clients: list });
+            }
         });
 
         setDuplicateGroups(groups);
