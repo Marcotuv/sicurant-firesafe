@@ -19,6 +19,7 @@ export interface Client {
   pagamento?: string;
   note?: string;
   updatedAt?: string;
+  synced?: boolean; // New Delta Sync flag
 }
 
 export interface Article {
@@ -27,6 +28,7 @@ export interface Article {
   descrizione: string;
   note: string;
   updatedAt?: string;
+  synced?: boolean;
 }
 
 export interface Asset {
@@ -41,6 +43,7 @@ export interface Asset {
   note?: string;
   specificData?: Record<string, any>;
   updatedAt?: string;
+  synced?: boolean;
 }
 
 export interface InternalComment {
@@ -70,6 +73,7 @@ export interface Intervention {
   progressive_code?: string;
   asset_id?: string;
   updatedAt?: string;
+  synced?: boolean;
 }
 
 export interface WorkSession {
@@ -89,6 +93,7 @@ export interface WorkSession {
   draftInterventions: Intervention[];
   interventionIds: string[];
   updatedAt?: string;
+  synced?: boolean;
 }
 
 export interface Technician {
@@ -176,6 +181,7 @@ export interface Quotation {
   notes?: string;
   updatedAt?: string;
   interventionRefId?: string; // ID della sessione o intervento collegato
+  synced?: boolean;
 }
 
 export interface Note {

@@ -165,6 +165,30 @@ const Anagraphics: React.FC = () => {
         return filtered;
     }, [categoryAnomalies, globalSearchTerm]);
 
+
+    // PAGINATION STATE & LOGIC
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 50;
+
+    // Reset pagination when search changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [globalSearchTerm]);
+
+    const totalPages = Math.ceil(displayClients.length / ITEMS_PER_PAGE);
+    const paginatedClients = useMemo(() => {
+        const start = (currentPage - 1) * ITEMS_PER_PAGE;
+        return displayClients.slice(start, start + ITEMS_PER_PAGE);
+    }, [displayClients, currentPage]);
+
+    const handlePageChange = (newPage: number) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+            setCurrentPage(newPage);
+            // Scroll to top of list
+            document.querySelector('.animate-fade-in')?.scrollIntoView({ behavior: 'smooth' });
+        }
+    };
+
     // 4. EFFECTS
     useEffect(() => {
         const fetchStocks = async () => {
@@ -595,14 +619,38 @@ const Anagraphics: React.FC = () => {
                 {activeTab === 'clients' && (
                     <div className="p-6 space-y-4 animate-fade-in">
                         <div className="flex justify-between items-center bg-gray-50 dark:bg-slate-900/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700 mb-2">
-                            <h3 className="font-black text-lg text-gray-800 dark:text-gray-200 uppercase tracking-tight">Elenco Clienti <span className="text-primary-500 text-sm ml-2 font-medium">({displayClients.length})</span></h3>
+                            <h3 className="font-black text-lg text-gray-800 dark:text-gray-200 uppercase tracking-tight">Elenco Clienti <span className="text-primary-500 text-sm ml-2 font-medium">({displayClients.length} totali)</span></h3>
                             <div className="flex gap-2">
                                 <button onClick={handleImportClick} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center shadow-lg transition-transform active:scale-95"><Upload size={16} className="mr-2" /> Importa</button>
                                 <button onClick={() => handleOpenClientModal()} className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center shadow-lg transition-transform active:scale-95"><Plus size={16} className="mr-2" /> Nuovo</button>
                             </div>
                         </div>
+
+                        {/* Pagination Controls Top (Optional, but good for UX) */}
+                        {totalPages > 1 && (
+                            <div className="flex justify-between items-center text-xs text-gray-500 px-2">
+                                <span>Pagina {currentPage} di {totalPages}</span>
+                                <div className="flex gap-1">
+                                    <button
+                                        onClick={() => handlePageChange(currentPage - 1)}
+                                        disabled={currentPage === 1}
+                                        className="p-1 px-3 border rounded hover:bg-gray-100 disabled:opacity-50"
+                                    >
+                                        Indietro
+                                    </button>
+                                    <button
+                                        onClick={() => handlePageChange(currentPage + 1)}
+                                        disabled={currentPage === totalPages}
+                                        className="p-1 px-3 border rounded hover:bg-gray-100 disabled:opacity-50"
+                                    >
+                                        Avanti
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="grid gap-4">
-                            {displayClients.map(c => (
+                            {paginatedClients.map(c => (
                                 <div key={c.id} className="p-4 border border-gray-200 dark:border-slate-700 rounded bg-gray-50 dark:bg-slate-900 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                     <div className="flex-1">
                                         <h4 className="font-bold text-gray-800 dark:text-gray-100">{c.nome}</h4>
@@ -626,6 +674,43 @@ const Anagraphics: React.FC = () => {
                                 </div>
                             ))}
                         </div>
+
+                        {/* Pagination Controls Bottom */}
+                        {totalPages > 1 && (
+                            <div className="flex justify-center items-center gap-2 mt-6 pt-4 border-t border-gray-100 dark:border-slate-700">
+                                <button
+                                    onClick={() => handlePageChange(1)}
+                                    disabled={currentPage === 1}
+                                    className="p-2 border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-50 text-sm"
+                                >
+                                    Prima
+                                </button>
+                                <button
+                                    onClick={() => handlePageChange(currentPage - 1)}
+                                    disabled={currentPage === 1}
+                                    className="p-2 border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-50 text-sm"
+                                >
+                                    Precedente
+                                </button>
+                                <span className="text-sm font-bold text-gray-600 dark:text-gray-300 px-4">
+                                    Pagina {currentPage} di {totalPages}
+                                </span>
+                                <button
+                                    onClick={() => handlePageChange(currentPage + 1)}
+                                    disabled={currentPage === totalPages}
+                                    className="p-2 border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-50 text-sm"
+                                >
+                                    Successiva
+                                </button>
+                                <button
+                                    onClick={() => handlePageChange(totalPages)}
+                                    disabled={currentPage === totalPages}
+                                    className="p-2 border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-50 text-sm"
+                                >
+                                    Ultima
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
 
