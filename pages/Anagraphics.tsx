@@ -66,6 +66,14 @@ const Anagraphics: React.FC = () => {
     const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
     const [isCustomPaymentInput, setIsCustomPaymentInput] = useState(false);
 
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+    const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+    const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
     const [isArticleModalOpen, setIsArticleModalOpen] = useState(false);
     const [newArticle, setNewArticle] = useState<Partial<Article>>({});
 
@@ -762,7 +770,7 @@ const Anagraphics: React.FC = () => {
                                         <button onClick={() => handleDuplicateClient(c)} className="p-2 border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-100 dark:hover:bg-slate-800 text-emerald-600" title="Duplica Anagrafica (Nuova Commessa)"><Copy size={16} /></button>
                                         <button onClick={() => handleOpenClientModal(c)} className="p-2 border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-100 dark:hover:bg-slate-800 text-blue-500" title="Modifica"><Edit size={16} /></button>
                                         {canDelete && (
-                                            <button onClick={() => deleteClient(c.id)} className="p-2 border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-100 dark:hover:bg-slate-800 text-red-500" title="Elimina"><Trash2 size={16} /></button>
+                                            <button onClick={() => openDeleteModal(c)} className="p-2 border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-100 dark:hover:bg-slate-800 text-red-500" title="Elimina"><Trash2 size={16} /></button>
                                         )}
                                     </div>
                                 </div>
@@ -1273,6 +1281,67 @@ const Anagraphics: React.FC = () => {
                                     <Trash2 size={16} className="mr-2" /> Consolida e Pulisci
                                 </button>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* SECURE DELETE MODAL */}
+            {isDeleteModalOpen && clientToDelete && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fade-in">
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-red-100 dark:border-red-900/30">
+                        <div className="bg-red-500 p-6 text-white text-center">
+                            <div className="inline-block p-3 bg-red-400/30 rounded-full mb-3">
+                                <AlertTriangle size={32} />
+                            </div>
+                            <h3 className="text-xl font-bold italic uppercase tracking-tight">Cancellazione Sicura</h3>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            <div className="bg-gray-50 dark:bg-slate-900/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700">
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Stai eliminando:</p>
+                                <p className="font-black text-gray-800 dark:text-gray-100 uppercase">{clientToDelete.nome}</p>
+                                {clientToDelete.piva && <p className="text-xs font-mono text-gray-400">P.IVA: {clientToDelete.piva}</p>}
+                                {clientToDelete.struttura && <p className="text-xs text-primary-500 font-bold mt-1">Sito: {clientToDelete.struttura}</p>}
+                            </div>
+
+                            <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-100 dark:border-red-900/30">
+                                <p className="text-xs text-red-600 dark:text-red-400 leading-relaxed font-medium">
+                                    <span className="font-black uppercase mr-1">Attenzione:</span>
+                                    Questa azione è <strong>irreversibile</strong>. Tutti i presidi, le rilevazioni e lo storico associato a questo record verranno eliminati permanentemente.
+                                </p>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Conferma di sicurezza</label>
+                                <input
+                                    className="w-full p-3 bg-white dark:bg-slate-900 border-2 border-gray-200 dark:border-slate-700 rounded-xl text-center font-black tracking-widest text-lg focus:border-red-500 dark:focus:border-red-500 outline-none transition-all placeholder:text-gray-300 dark:placeholder:text-gray-700"
+                                    placeholder="Scrivi elimina"
+                                    value={deleteConfirmText}
+                                    onChange={e => setDeleteConfirmText(e.target.value)}
+                                    autoFocus
+                                />
+                                <p className="text-[10px] text-gray-400 text-center italic">Digita la parola di sicurezza per attivare il tasto</p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 pt-2">
+                                <button
+                                    onClick={() => { setIsDeleteModalOpen(false); setClientToDelete(null); }}
+                                    className="py-3 rounded-xl border border-gray-200 dark:border-slate-700 font-bold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+                                >
+                                    Annulla
+                                </button>
+                                <button
+                                    onClick={handleConfirmDelete}
+                                    disabled={deleteConfirmText.toLowerCase() !== 'elimina'}
+                                    className={`py-3 rounded-xl font-black text-white shadow-lg transition-all ${deleteConfirmText.toLowerCase() === 'elimina'
+                                            ? 'bg-red-500 hover:bg-red-600 active:scale-95'
+                                            : 'bg-gray-300 dark:bg-slate-700 cursor-not-allowed opacity-50'
+                                        }`}
+                                >
+                                    ELIMINA
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
