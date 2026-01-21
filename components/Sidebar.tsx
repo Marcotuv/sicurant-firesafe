@@ -65,7 +65,7 @@ const Sidebar: React.FC = () => {
         </ul>
       </nav>
       <div className="p-4 text-center text-xs text-gray-400 dark:text-gray-500 border-t border-gray-100 dark:border-slate-700">
-        &copy; 2025 SafetyNet Intranet
+        &copy; 2025 SafetyNet Intranet v2.7.1
       </div>
     </aside>
   );
