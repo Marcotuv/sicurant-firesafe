@@ -700,7 +700,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     updateQuotation: (id: string, data: Partial<Quotation>) => setQuotations(p => p.map(q => q.id === id ? { ...q, ...data, synced: false } : q)),
     deleteQuotation: (id: string) => setQuotations(p => p.filter(q => q.id !== id)),
     exportData: () => { },
-    importData: (json: string) => true
+    importData: (json: string) => true,
+    checkDuplicateClient
   }), [
     clients, articles, assets, services, anomalies, checklistTemplates, categoryAnomalies, interventions, notifications, sessions, technicians, attendanceHistory, quotations, isLoading,
     userNotes, userSignature, remoteUrl, supabaseConfig, syncData, downloadCloudData, getOpenSession, createSession, scheduleSession, updateSession, updatePlannedSession, saveInterventionToSession, closeSession,
