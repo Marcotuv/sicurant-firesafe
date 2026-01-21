@@ -14,7 +14,7 @@ import { z } from 'zod';
 // ZOD SCHEMAS
 const ClientSchema = z.object({
     nome: z.string().min(2, "Ragione Sociale richiesta"),
-    indirizzo: z.string().min(5, "Indirizzo richiesto"),
+    indirizzo: z.string().min(2, "Indirizzo richiesto"),
     piva: z.string().optional(),
     codiceUnivoco: z.string().optional(),
     email: z.string().email("Email non valida").optional().or(z.literal("")),
