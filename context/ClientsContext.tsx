@@ -16,6 +16,7 @@ interface ClientsContextType {
   addClientsBulk: (clients: Client[]) => Promise<void>;
   refreshClients: (since?: string) => Promise<void>;
   clearClientsData: () => Promise<void>;
+  checkDuplicateClient: (client: Partial<Client>) => { isDuplicate: boolean; reason?: string };
 }
 
 const ClientsContext = createContext<ClientsContextType | undefined>(undefined);

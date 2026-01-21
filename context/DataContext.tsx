@@ -18,7 +18,7 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 
-  const { clients, addClient: addClientCtx, updateClient: updateClientCtx, deleteClient: deleteClientCtx, addClientsBulk: addClientsBulkCtx, refreshClients } = useClients();
+  const { clients, addClient: addClientCtx, updateClient: updateClientCtx, deleteClient: deleteClientCtx, addClientsBulk: addClientsBulkCtx, refreshClients, checkDuplicateClient } = useClients();
   const { safeSync } = useSyncManager();
 
   const [articles, setArticles] = useState<Article[]>([]);
@@ -705,7 +705,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     clients, articles, assets, services, anomalies, checklistTemplates, categoryAnomalies, interventions, notifications, sessions, technicians, attendanceHistory, quotations, isLoading,
     userNotes, userSignature, remoteUrl, supabaseConfig, syncData, downloadCloudData, getOpenSession, createSession, scheduleSession, updateSession, updatePlannedSession, saveInterventionToSession, closeSession,
     addClientCtx, updateClientCtx, addClientsBulkCtx, deleteClientCtx,
-    syncStatus, lastSyncTime, checkConflict
+    syncStatus, lastSyncTime, checkConflict, checkDuplicateClient
   ]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
