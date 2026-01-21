@@ -616,10 +616,10 @@ const Anagraphics: React.FC = () => {
                         else {
                             // Check for specific fields from ASSET_SCHEMAS
                             // Normalize header: replace spaces with underscores to match keys if needed
-                            const normalizedH = h.replace(/\s+/g, '_');
-                            let foundKey: string | null = null;
+                            const normalizedH = h.replace(/\s+/g, '_').replace(/\./g, '');
+                            let foundKey: string = normalizedH; // Default to column name if not found in schema
 
-                            // Check all schemas for a matching key
+                            // Check schemas to see if there's a canonical name
                             for (const fields of Object.values(ASSET_SCHEMAS)) {
                                 const field = fields.find(f => f.key.toLowerCase() === normalizedH);
                                 if (field) {
@@ -628,10 +628,9 @@ const Anagraphics: React.FC = () => {
                                 }
                             }
 
-                            if (foundKey) {
-                                if (!a.specificData) a.specificData = {};
-                                a.specificData[foundKey] = v;
-                            }
+                            // Always save to specificData if it's not a main field
+                            if (!a.specificData) a.specificData = {};
+                            a.specificData[foundKey] = v;
                         }
                     });
 
