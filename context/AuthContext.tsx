@@ -84,6 +84,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
             }).catch(() => setLoading(false));
 
+            // Safety Timeout: Force stop loading after 7 seconds if something hangs
+            const safetyTimeout = setTimeout(() => {
+                if (loading) {
+                    console.warn("AuthContext: Loading timed out, forcing completion.");
+                    setLoading(false);
+                }
+            }, 7000);
+
             // Listener per cambiamenti auth
             const { data: { subscription } } = supabase.auth.onAuthStateChange(
                 async (_event, session) => {
@@ -97,10 +105,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         localStorage.removeItem('user_profile');
                     }
                     setLoading(false);
+                    clearTimeout(safetyTimeout);
                 }
             );
 
-            return () => subscription.unsubscribe();
+            return () => {
+                subscription.unsubscribe();
+                clearTimeout(safetyTimeout);
+            };
         } else {
             setLoading(false);
             return () => { };
