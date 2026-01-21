@@ -82,6 +82,19 @@ const AppContent: React.FC = () => {
           >
             Riprova ricaricando la pagina
           </button>
+          <button
+            onClick={async () => {
+              const { clear } = await import('idb-keyval');
+              if (confirm("Attenzione: Se il caricamento è bloccato, il reset cancellerà la sessione locale. Dovrai rifare il login. Continuare?")) {
+                await clear();
+                localStorage.clear();
+                window.location.reload();
+              }
+            }}
+            className="mt-4 text-[10px] text-red-400 hover:text-red-500 underline"
+          >
+            Reset completo sessione (Esci)
+          </button>
         </div>
       </div>
     );

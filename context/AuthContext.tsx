@@ -78,7 +78,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     fetchProfile(session.user.id, session.user.email || '').then(p => {
                         setProfile(p);
                         setLoading(false); // Se non avevamo cache, sblocca ora
-                    });
+                    }).catch(() => setLoading(false));
                 } else {
                     setLoading(false);
                 }
