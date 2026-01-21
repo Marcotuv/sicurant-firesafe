@@ -55,10 +55,34 @@ const AppContent: React.FC = () => {
     });
   };
 
+  // Se stiamo caricando l'auth iniziale, mostra il loader a tutto schermo
   if (loading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-slate-900">
-        <Loader2 className="animate-spin text-primary-600 w-12 h-12" />
+        <div className="flex flex-col items-center">
+          <Loader2 className="animate-spin text-primary-600 w-12 h-12 mb-4" />
+          <p className="text-gray-500 animate-pulse text-sm">Caricamento sessione...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Se l'utente è loggato ma il profilo non è ancora arrivato (es. dopo il timeout di sicurezza)
+  // mostriamo comunque un loader invece di far entrare l'utente con "permessi limitati"
+  const { profile } = useAuth();
+  if (user && !profile) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-slate-900">
+        <div className="flex flex-col items-center">
+          <Loader2 className="animate-spin text-primary-600 w-12 h-12 mb-4" />
+          <p className="text-gray-500 text-sm">Recupero profilo utente...</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-6 text-xs text-primary-600 hover:underline"
+          >
+            Riprova ricaricando la pagina
+          </button>
+        </div>
       </div>
     );
   }
