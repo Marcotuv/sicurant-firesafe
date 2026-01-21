@@ -70,10 +70,6 @@ const Anagraphics: React.FC = () => {
     const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
-    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
-    const [deleteConfirmText, setDeleteConfirmText] = useState('');
-
     const [isArticleModalOpen, setIsArticleModalOpen] = useState(false);
     const [newArticle, setNewArticle] = useState<Partial<Article>>({});
 
@@ -389,6 +385,26 @@ const Anagraphics: React.FC = () => {
             console.error("Save Client Error:", error);
             alert("Errore durante il salvataggio: " + (error.message || "Errore sconosciuto"));
         }
+    };
+
+    const handleConfirmDelete = async () => {
+        if (deleteConfirmText.toLowerCase() === 'elimina' && clientToDelete) {
+            await deleteClient(clientToDelete.id);
+            // Cleanup related assets locally
+            const relatedAssets = assets.filter(a => a.clientId === clientToDelete.id);
+            for (const asset of relatedAssets) {
+                deleteAsset(asset.id);
+            }
+            setIsDeleteModalOpen(false);
+            setClientToDelete(null);
+            setDeleteConfirmText('');
+        }
+    };
+
+    const openDeleteModal = (client: Client) => {
+        setClientToDelete(client);
+        setDeleteConfirmText('');
+        setIsDeleteModalOpen(true);
     };
 
     const handleOpenArticleModal = () => { setNewArticle({ id: '', categoria: '', descrizione: '', note: '' }); setIsArticleModalOpen(true); };
@@ -1335,8 +1351,8 @@ const Anagraphics: React.FC = () => {
                                     onClick={handleConfirmDelete}
                                     disabled={deleteConfirmText.toLowerCase() !== 'elimina'}
                                     className={`py-3 rounded-xl font-black text-white shadow-lg transition-all ${deleteConfirmText.toLowerCase() === 'elimina'
-                                            ? 'bg-red-500 hover:bg-red-600 active:scale-95'
-                                            : 'bg-gray-300 dark:bg-slate-700 cursor-not-allowed opacity-50'
+                                        ? 'bg-red-500 hover:bg-red-600 active:scale-95'
+                                        : 'bg-gray-300 dark:bg-slate-700 cursor-not-allowed opacity-50'
                                         }`}
                                 >
                                     ELIMINA
