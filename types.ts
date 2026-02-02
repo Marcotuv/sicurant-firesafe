@@ -132,23 +132,7 @@ export interface Notification {
   attachment?: NotificationAttachment;
 }
 
-export type AttendanceType = 'ENTRATA' | 'USCITA' | 'FERIE' | 'ROL' | 'MALATTIA' | 'PERMESSO';
-export type ApprovalStatus = 'APPROVED' | 'PENDING' | 'REJECTED';
 
-export interface AttendanceRecord {
-  id: string;
-  userId: string;
-  userName: string;
-  type: AttendanceType;
-  status: ApprovalStatus;
-  timestamp: string;
-  latitude?: number;
-  longitude?: number;
-  notes?: string;
-  approvedBy?: string;
-  approvalTimestamp?: string;
-  synced?: boolean;
-}
 
 export type QuotationStatus = 'DRAFT' | 'SENT' | 'ACCEPTED_TO_PLAN' | 'ACCEPTED_PLANNED' | 'CLOSED' | 'REJECTED' | 'EXPIRED';
 export type QuotationType = 'PREVENTIVO' | 'CONSUNTIVO';
@@ -208,7 +192,6 @@ export interface DataContextType {
   notifications: Notification[];
   sessions: WorkSession[];
   technicians: Technician[];
-  attendanceHistory: AttendanceRecord[];
   quotations: Quotation[];
   isLoading: boolean;
   syncStatus: 'synced' | 'syncing' | 'error' | 'offline';
@@ -268,8 +251,7 @@ export interface DataContextType {
   clearAllNotifications: (userId?: string) => void;
   addNotification: (notification: Omit<Notification, 'id' | 'readBy' | 'timestamp'>) => void;
 
-  addAttendanceRecord: (record: AttendanceRecord) => void;
-  updateAttendanceStatus: (recordId: string, status: ApprovalStatus, officeUserId: string) => void;
+
 
   addQuotation: (q: Quotation) => void;
   updateQuotation: (id: string, data: Partial<Quotation>) => void;

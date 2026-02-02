@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
-import { User, Mail, Shield, PenTool, Save, Clock, Calendar, HeartPulse, StickyNote, CheckCircle, Plus, Trash2, Palette } from 'lucide-react';
+import { User, Mail, Shield, PenTool, Save, StickyNote, CheckCircle, Plus, Trash2 } from 'lucide-react';
 import { SignaturePad } from '../components/SignaturePad';
 import { MOCK_USER } from '../lib/constants';
 import { Note } from '../types';
@@ -12,7 +12,7 @@ const Profile: React.FC = () => {
     const {
         userNotes, updateUserNotes,
         userSignature, saveUserSignature,
-        addNotification, attendanceHistory
+        addNotification
     } = useData();
 
     // Local state for editing notes before saving to context/DB
@@ -33,42 +33,7 @@ const Profile: React.FC = () => {
     };
 
     // --- CALCOLO STATISTICHE MESE CORRENTE ---
-    const stats = useMemo(() => {
-        const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
 
-        // Filtra record mese corrente
-        const monthlyRecords = attendanceHistory.filter(r => {
-            const d = new Date(r.timestamp);
-            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-        }).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
-        // Calcolo Ore Lavorate
-        let totalMs = 0;
-        let lastEntry: Date | null = null;
-
-        monthlyRecords.forEach(r => {
-            const time = new Date(r.timestamp);
-            if (r.type === 'ENTRATA') {
-                lastEntry = time;
-            } else if (r.type === 'USCITA' && lastEntry) {
-                totalMs += (time.getTime() - lastEntry.getTime());
-                lastEntry = null;
-            }
-        });
-
-        const workedHours = (totalMs / (1000 * 60 * 60)).toFixed(1);
-
-        // Conteggi Eventi
-        const leaveCount = monthlyRecords.filter(r => r.type === 'FERIE').length;
-        const rolCount = monthlyRecords.filter(r => r.type === 'ROL').length;
-        const sickCount = monthlyRecords.filter(r => r.type === 'MALATTIA').length;
-        const permitCount = monthlyRecords.filter(r => r.type === 'PERMESSO').length;
-
-        return { workedHours, leaveCount, rolCount, sickCount, permitCount };
-
-    }, [attendanceHistory]);
 
     // --- NOTES MANAGEMENT ---
     const handleSaveNotes = () => {
@@ -153,31 +118,7 @@ const Profile: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* CARD STATISTICHE */}
-                    <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6">
-                        <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
-                            <Clock size={18} className="mr-2 text-primary-600" /> Riepilogo Mese
-                        </h4>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-100 dark:border-blue-800">
-                                <span className="text-xs text-blue-600 dark:text-blue-300 font-bold uppercase">Ore Lavorate</span>
-                                <div className="text-2xl font-bold text-blue-800 dark:text-blue-100 mt-1">{stats.workedHours}</div>
-                            </div>
-                            <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg border border-purple-100 dark:border-purple-800">
-                                <span className="text-xs text-purple-600 dark:text-purple-300 font-bold uppercase">Permessi (h)</span>
-                                <div className="text-2xl font-bold text-purple-800 dark:text-purple-100 mt-1">{stats.permitCount}</div>
-                            </div>
-                            <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg border border-orange-100 dark:border-orange-800">
-                                <span className="text-xs text-orange-600 dark:text-orange-300 font-bold uppercase">Ferie (gg)</span>
-                                <div className="text-2xl font-bold text-orange-800 dark:text-orange-100 mt-1">{stats.leaveCount}</div>
-                            </div>
-                            <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-100 dark:border-red-800">
-                                <span className="text-xs text-red-600 dark:text-red-300 font-bold uppercase">Malattia (gg)</span>
-                                <div className="text-2xl font-bold text-red-800 dark:text-red-100 mt-1">{stats.sickCount}</div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 {/* COLONNA DESTRA: STRUMENTI */}
@@ -224,8 +165,8 @@ const Profile: React.FC = () => {
                                     type="button"
                                     onClick={handleSaveNotes}
                                     className={`text-sm px-4 py-2 rounded-lg font-bold flex items-center transition-colors shadow-sm ${isNotesSaved
-                                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-                                            : 'bg-primary-600 text-white hover:bg-primary-700'
+                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                                        : 'bg-primary-600 text-white hover:bg-primary-700'
                                         }`}
                                 >
                                     {isNotesSaved ? <CheckCircle size={16} className="mr-1" /> : <Save size={16} className="mr-1" />}
@@ -256,9 +197,9 @@ const Profile: React.FC = () => {
                                                                 key={c}
                                                                 onClick={() => updateNoteColor(note.id, c as Note['color'])}
                                                                 className={`w-3 h-3 rounded-full border border-black/10 ${c === 'yellow' ? 'bg-yellow-300' :
-                                                                        c === 'blue' ? 'bg-blue-300' :
-                                                                            c === 'green' ? 'bg-green-300' :
-                                                                                c === 'pink' ? 'bg-pink-300' : 'bg-purple-300'
+                                                                    c === 'blue' ? 'bg-blue-300' :
+                                                                        c === 'green' ? 'bg-green-300' :
+                                                                            c === 'pink' ? 'bg-pink-300' : 'bg-purple-300'
                                                                     }`}
                                                             />
                                                         ))}

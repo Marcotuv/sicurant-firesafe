@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef, useMemo } from 'react';
 import {
-  Client, Asset, Article, Intervention, Notification, DataContextType, WorkSession, SupabaseConfig, Technician, AttendanceRecord, Note, ApprovalStatus, Quotation, QuotationStatus
+  Client, Asset, Article, Intervention, Notification, DataContextType, WorkSession, SupabaseConfig, Technician, Note, Quotation, QuotationStatus
 } from '../types';
 import {
   INITIAL_ASSETS, INITIAL_ARTICLES, INITIAL_INTERVENTIONS, INITIAL_NOTIFICATIONS, SERVICES_LIST, ANOMALIES_LIST, CHECKLIST_TEMPLATES, CATEGORY_ANOMALIES
@@ -31,7 +31,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
   const [sessions, setSessions] = useState<WorkSession[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
-  const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
 
   const [userNotes, setUserNotes] = useState<Note[]>([]);
@@ -64,11 +63,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // PHASE 2: Business Data
         const [
           storedSessions, storedInterventions, storedAssets, storedArticles,
-          storedServices, storedAnomalies, storedAttendance, storedQuotations,
+          storedServices, storedAnomalies, storedQuotations,
           storedUserNotes, storedTechnicians
         ] = await Promise.all([
           get('work_sessions'), get('interventions'), get('assets'), get('articles'),
-          get('services'), get('anomalies'), get('attendance_history'), get('quotations'),
+          get('services'), get('anomalies'), get('quotations'),
           get('user_notes'), get('technicians')
         ]);
 
@@ -81,7 +80,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setArticles(migrateSynced(storedArticles));
         setServices(storedServices || SERVICES_LIST);
         setAnomalies(storedAnomalies || ANOMALIES_LIST);
-        setAttendanceHistory(migrateSynced(storedAttendance)); // Attendance assumes synced differently, but let's align
         setQuotations(migrateSynced(storedQuotations));
         setTechnicians(storedTechnicians || []);
         if (storedUserNotes) setUserNotes(storedUserNotes);
@@ -129,7 +127,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     console.log('[DataContext] Clearing all local data...');
     const keys = [
       'work_sessions', 'interventions', 'assets', 'articles',
-      'services', 'anomalies', 'attendance_history', 'quotations',
+      'work_sessions', 'interventions', 'assets', 'articles',
+      'services', 'anomalies', 'quotations',
       'user_notes', 'user_signature', 'supabase_config', 'remote_url'
     ];
     // Clear IDB
@@ -142,7 +141,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setArticles(INITIAL_ARTICLES);
     setServices(SERVICES_LIST);
     setAnomalies(ANOMALIES_LIST);
-    setAttendanceHistory([]);
+    setAnomalies(ANOMALIES_LIST);
     setQuotations([]);
     setUserNotes([]);
     setUserSignature("");
@@ -272,22 +271,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setQuotations(prev => prev.map(p => dirtyQuotations.find(d => d.id === p.id) ? { ...p, synced: true } : p));
         }
 
-        // --- 5. ATTENDANCE --- (Already had logic, just ensuring consistency)
-        const dirtyAttendance = attendanceHistory.filter(r => !r.synced);
-        if (dirtyAttendance.length > 0) {
-          console.log(`[DataContext] Syncing ${dirtyAttendance.length} attendance records...`);
-          const payload = dirtyAttendance.map(r => ({
-            id: r.id, user_id: r.userId, user_name: r.userName, type: r.type, status: r.status,
-            timestamp: r.timestamp, latitude: r.latitude, longitude: r.longitude,
-            notes: r.notes, approved_by: r.approvedBy, approval_timestamp: r.approvalTimestamp, synced: true
-          }));
-          const { error } = await supabase.from('attendance_history').upsert(payload);
-          if (error) throw error;
-          setAttendanceHistory(prev => prev.map(loc => {
-            const sent = payload.find(p => p.id === loc.id);
-            return sent ? { ...loc, synced: true } : loc;
-          }));
-        }
+
 
         // --- 6. ARTICLES ---
         const dirtyArticles = articles.filter(a => !a.synced);
@@ -356,7 +340,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw err; // Rilancia per safeSync
       }
     });
-  }, [supabaseConfig, interventions, assets, sessions, quotations, attendanceHistory, articles, clients, safeSync, refreshClients]);
+  }, [supabaseConfig, interventions, assets, sessions, quotations, articles, clients, safeSync, refreshClients]);
 
   const downloadCloudData = useCallback(async () => {
     const supabase = globalSupabase;
@@ -501,32 +485,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         });
       }
 
-      // 5. ATTENDANCE (Usually append-only, but let's sync)
-      // For attendance, we might want a different logic, but timestamp check works if updated_at is reliable
-      // Or just fetch all if no timestamp, but if timestamp, fetch new.
-      // Attendance table often doesn't have updated_at for old records? Let's check schema. Assuming it has.
-      // If it doesn't have updated_at, we might rely on 'timestamp'.
-      // Let's stick to updated_at if available or timestamp.
-      // Assuming updated_at exists or we use timestamp for attendance.
-      // For safety on Attendance, let's use TIMESTAMP column if updated_at is missing, but usually we added updated_at.
-      // Let's assume updated_at is present as per previous schema edits.
-      const { data: attData } = await fetchAll<any>(buildQuery('attendance_history'));
-      if (attData && attData.length > 0) {
-        setAttendanceHistory(prev => {
-          const merged = [...prev];
-          attData.forEach((d: any) => {
-            const exists = merged.find(m => m.id === d.id);
-            if (!exists) {
-              merged.push({
-                id: d.id, userId: d.user_id, userName: d.user_name, type: d.type, status: d.status,
-                timestamp: d.timestamp, latitude: d.latitude, longitude: d.longitude, notes: d.notes,
-                approvedBy: d.approved_by, approvalTimestamp: d.approval_timestamp, synced: true
-              });
-            }
-          });
-          return merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        });
-      }
+
 
       // 6. ARTICLES
       const { data: artData } = await fetchAll<any>(buildQuery('articles'));
@@ -653,7 +612,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const value = useMemo(() => ({
-    clients, articles, assets, services, anomalies, checklistTemplates, categoryAnomalies, interventions, notifications, sessions, technicians, attendanceHistory, quotations, isLoading,
+    clients, articles, assets, services, anomalies, checklistTemplates, categoryAnomalies, interventions, notifications, sessions, technicians, quotations, isLoading,
     userNotes, userSignature, updateUserNotes: setUserNotes, saveUserSignature: setUserSignature,
     remoteUrl, setRemoteUrl: setRemoteUrlState, supabaseConfig, setSupabaseConfig: setSupabaseConfigState, syncData,
     downloadCloudData, syncStatus, lastSyncTime, checkConflict, clearAllDataLocal,
@@ -688,8 +647,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     addNotification: (n: any) => setNotifications(p => [{ id: `N-${Date.now()}`, timestamp: getTimestamp(), readBy: [], ...n }, ...p]),
     markNotificationAsRead: (id: string, userId: string) => setNotifications(p => p.map(n => n.id === id ? { ...n, readBy: [...n.readBy, userId] } : n)),
     clearAllNotifications: () => setNotifications([]),
-    addAttendanceRecord: (r: AttendanceRecord) => setAttendanceHistory(p => [{ ...r, synced: false }, ...p]),
-    updateAttendanceStatus: (id: string, s: ApprovalStatus, u: string) => setAttendanceHistory(p => p.map(r => r.id === id ? { ...r, status: s, approvedBy: u, synced: false } : r)),
     addQuotation: (q: Quotation) => {
       setQuotations(prevList => {
         const number = q.number || generateQuotationNumberInternal(prevList);
@@ -703,7 +660,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     importData: (json: string) => true,
     checkDuplicateClient
   }), [
-    clients, articles, assets, services, anomalies, checklistTemplates, categoryAnomalies, interventions, notifications, sessions, technicians, attendanceHistory, quotations, isLoading,
+    clients, articles, assets, services, anomalies, checklistTemplates, categoryAnomalies, interventions, notifications, sessions, technicians, quotations, isLoading,
     userNotes, userSignature, remoteUrl, supabaseConfig, syncData, downloadCloudData, getOpenSession, createSession, scheduleSession, updateSession, updatePlannedSession, saveInterventionToSession, closeSession,
     addClientCtx, updateClientCtx, addClientsBulkCtx, deleteClientCtx,
     syncStatus, lastSyncTime, checkConflict, checkDuplicateClient

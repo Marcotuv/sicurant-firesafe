@@ -16,7 +16,7 @@ const Sidebar: React.FC = () => {
     { to: "/scheduler", icon: Calendar, label: "Calendario", visible: canManageData }, // NUOVO
     { to: "/planning", icon: CalendarRange, label: "Pianificazione", visible: true },
     { to: "/inventory", icon: Package, label: "Magazzino", visible: true }, // NUOVO
-    { to: "/hr-management", icon: Users, label: "Gestione HR", visible: canManageData },
+
     { to: "/quotations", icon: ReceiptEuro, label: "Preventivi", visible: canManageData },
     { to: "/technician", icon: Wrench, label: "Interventi Assegnati", visible: true },
     { to: "/interventions", icon: ClipboardList, label: "Registro Interventi", visible: true },
@@ -65,7 +65,7 @@ const Sidebar: React.FC = () => {
         </ul>
       </nav>
       <div className="p-4 text-center text-xs text-gray-400 dark:text-gray-500 border-t border-gray-100 dark:border-slate-700">
-        &copy; 2025 SafetyNet Intranet v2.9.1
+        &copy; 2025 SafetyNet Intranet v2.9.3
       </div>
     </aside>
   );

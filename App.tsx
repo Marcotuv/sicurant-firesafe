@@ -13,7 +13,6 @@ const TechIntervention = React.lazy(() => import('./pages/TechIntervention'));
 const InterventionLog = React.lazy(() => import('./pages/InterventionLog'));
 const Anagraphics = React.lazy(() => import('./pages/Anagraphics'));
 const Planning = React.lazy(() => import('./pages/Planning'));
-const HrManagement = React.lazy(() => import('./pages/HrManagement'));
 const Quotations = React.lazy(() => import('./pages/Quotations'));
 const Settings = React.lazy(() => import('./pages/Settings'));
 const Documents = React.lazy(() => import('./pages/Documents'));
@@ -126,7 +125,7 @@ const AppContent: React.FC = () => {
               <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/planning" element={<Planning />} />
-                <Route path="/hr-management" element={<HrManagement />} />
+
                 <Route path="/quotations" element={<Quotations />} />
                 <Route path="/technician" element={<TechIntervention />} />
                 <Route path="/interventions" element={<InterventionLog />} />
