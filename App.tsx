@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle } from 'lucide-react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
 import Sidebar from './components/Sidebar';
@@ -66,38 +66,7 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // Se l'utente è loggato ma il profilo non è ancora arrivato (es. dopo il timeout di sicurezza)
-  // mostriamo comunque un loader invece di far entrare l'utente con "permessi limitati"
-  const { profile } = useAuth();
-  if (user && !profile) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-slate-900">
-        <div className="flex flex-col items-center">
-          <Loader2 className="animate-spin text-primary-600 w-12 h-12 mb-4" />
-          <p className="text-gray-500 text-sm">Recupero profilo utente...</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-6 text-xs text-primary-600 hover:underline"
-          >
-            Riprova ricaricando la pagina
-          </button>
-          <button
-            onClick={async () => {
-              const { clear } = await import('idb-keyval');
-              if (confirm("Attenzione: Se il caricamento è bloccato, il reset cancellerà la sessione locale. Dovrai rifare il login. Continuare?")) {
-                await clear();
-                localStorage.clear();
-                window.location.reload();
-              }
-            }}
-            className="mt-4 text-[10px] text-red-400 hover:text-red-500 underline"
-          >
-            Reset completo sessione (Esci)
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Removed blocking screen - allow degraded access if profile fails to load
 
   if (!user) {
     return (

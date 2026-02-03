@@ -84,13 +84,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
             }).catch(() => setLoading(false));
 
-            // Safety Timeout: Force stop loading after 7 seconds if something hangs
+            // Safety Timeout: Force stop loading after 2 seconds if something hangs
             const safetyTimeout = setTimeout(() => {
                 if (loading) {
-                    console.warn("AuthContext: Loading timed out, forcing completion.");
+                    console.warn("AuthContext: Loading timed out after 2s, forcing completion.");
                     setLoading(false);
                 }
-            }, 7000);
+            }, 2000);
 
             // Listener per cambiamenti auth
             const { data: { subscription } } = supabase.auth.onAuthStateChange(
