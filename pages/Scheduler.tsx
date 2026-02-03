@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
+import { ArrowLeft } from 'lucide-react';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { it } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -52,8 +53,13 @@ const Scheduler: React.FC = () => {
     };
 
     return (
-        <div className="h-screen flex flex-col p-4 bg-white">
-            <h1 className="text-2xl font-bold mb-4">Pianificazione Interventi</h1>
+        <div className="h-screen flex flex-col p-4 bg-white dark:bg-slate-900 dark:text-white transition-colors duration-300">
+            <div className="flex items-center mb-4">
+                <button onClick={() => navigate('/')} className="mr-4 p-2 bg-gray-100 dark:bg-slate-800 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors">
+                    <ArrowLeft size={20} className="text-gray-600 dark:text-gray-300" />
+                </button>
+                <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Pianificazione Interventi</h1>
+            </div>
             <div className="flex-1">
                 <Calendar
                     localizer={localizer}
