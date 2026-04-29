@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: 'dist',
-      sourcemap: true,
+      sourcemap: false, // Fix: was true, which exposed source code in browser DevTools in production
       emptyOutDir: true,
       minify: 'terser',
       rollupOptions: {

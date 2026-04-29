@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase } from '../config/supabase';
 import { User, Session } from '@supabase/supabase-js';
 import { UserProfile } from '../types';
@@ -24,6 +24,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [session, setSession] = useState<Session | null>(null);
     const [loading, setLoading] = useState(true);
+    // Fix: use a ref to track loading state inside setTimeout callbacks,
+    // since reading the React state variable inside a closure always gives a stale value.
+    const loadingRef = useRef(true);
 
     // Helper per ottenere il profilo dal DB
     const fetchProfile = async (userId: string, email: string) => {
@@ -55,6 +58,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         // Verifica sessione esistente
         if (supabase?.auth) {
+            // Helper to set loading and keep ref in sync — defined first to avoid hoisting issues
+            const stopLoading = () => {
+                loadingRef.current = false;
+                setLoading(false);
+            };
+
             supabase.auth.getSession().then(async ({ data: { session } }) => {
                 setSession(session);
                 setUser(session?.user ?? null);
@@ -67,7 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             const p = JSON.parse(cached);
                             if (p.id === session.user.id) {
                                 setProfile(p);
-                                setLoading(false); // Sblocca l'app subito!
+                                stopLoading(); // Sblocca l'app subito!
                             }
                         } catch (e) {
                             console.error("Cache error", e);
@@ -77,17 +86,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     // Fetch aggiornato in background
                     fetchProfile(session.user.id, session.user.email || '').then(p => {
                         setProfile(p);
-                        setLoading(false); // Se non avevamo cache, sblocca ora
-                    }).catch(() => setLoading(false));
+                        stopLoading(); // Se non avevamo cache, sblocca ora
+                    }).catch(() => stopLoading());
                 } else {
-                    setLoading(false);
+                    stopLoading();
                 }
-            }).catch(() => setLoading(false));
+            }).catch(() => stopLoading());
 
             // Safety Timeout: Force stop loading after 2 seconds if something hangs
             const safetyTimeout = setTimeout(() => {
-                if (loading) {
+                // Fix: use ref instead of state variable to avoid stale closure
+                if (loadingRef.current) {
                     console.warn("AuthContext: Loading timed out after 2s, forcing completion.");
+                    loadingRef.current = false;
                     setLoading(false);
                 }
             }, 2000);
@@ -104,7 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         setProfile(null);
                         localStorage.removeItem('user_profile');
                     }
-                    setLoading(false);
+                    stopLoading();
                     clearTimeout(safetyTimeout);
                 }
             );

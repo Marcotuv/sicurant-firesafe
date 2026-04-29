@@ -1,13 +1,14 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 
 export const useAutoSync = (intervalMs: number = 5 * 60 * 1000) => {
-    const { syncData, downloadCloudData, syncStatus } = useData();
+    const { syncData, downloadCloudData } = useData();
     const { user } = useAuth();
 
-    // Refs for backoff logic
-    const timerRef = useRef<NodeJS.Timeout | null>(null);
+    // Use a ref to track in-progress state to avoid stale closure issues
+    const isSyncingRef = useRef(false);
+    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const consecutiveFailuresRef = useRef(0);
     const lastFailureTimeRef = useRef(0);
 
@@ -16,20 +17,19 @@ export const useAutoSync = (intervalMs: number = 5 * 60 * 1000) => {
         if (failures === 0) return 0;
         // Exponential backoff: 30s, 60s, 120s, 240s... max 10 minutes
         const baseDelay = 30 * 1000;
-        const delay = Math.min(baseDelay * Math.pow(2, failures - 1), 10 * 60 * 1000);
-        return delay;
+        return Math.min(baseDelay * Math.pow(2, failures - 1), 10 * 60 * 1000);
     };
 
-    const performSync = async (isManualTrigger = false) => {
+    const performSync = useCallback(async (isManualTrigger = false) => {
         if (!navigator.onLine || !user) return;
 
-        // Don't start a new sync if one is already in progress
-        if (syncStatus === 'syncing') {
+        // Use ref instead of react state to avoid stale closure
+        if (isSyncingRef.current) {
             console.log('[AutoSync] Sync already in progress, skipping...');
             return;
         }
 
-        // Check backoff unless manually forced (optional, here we treat event listeners as non-manual)
+        // Check backoff
         if (!isManualTrigger) {
             const backoffDelay = getBackoffDelay();
             const timeSinceLastFailure = Date.now() - lastFailureTimeRef.current;
@@ -41,12 +41,12 @@ export const useAutoSync = (intervalMs: number = 5 * 60 * 1000) => {
             }
         }
 
+        isSyncingRef.current = true;
         console.log(`[AutoSync] Starting sync... (Attempt ${consecutiveFailuresRef.current + 1})`);
         try {
             await syncData();
             await downloadCloudData();
 
-            // On success, reset failures
             if (consecutiveFailuresRef.current > 0) {
                 console.log('[AutoSync] Sync recovered successfully. Resetting backoff.');
             }
@@ -57,36 +57,39 @@ export const useAutoSync = (intervalMs: number = 5 * 60 * 1000) => {
             consecutiveFailuresRef.current += 1;
             lastFailureTimeRef.current = Date.now();
             console.error(`[AutoSync] Sync failed. Failure count: ${consecutiveFailuresRef.current}`, err);
+        } finally {
+            isSyncingRef.current = false;
         }
-    };
+    }, [user, syncData, downloadCloudData]);
 
     useEffect(() => {
         if (!user) return;
 
-        // Esegui sync immediato all'avvio/login (resetting any previous backoff state usually desirable on fresh mount, but kept refs persist if component doesn't unmount)
-        // For fresh mount, refs are 0.
+        // Run immediately on mount/login
         performSync();
 
         // Start interval
         timerRef.current = setInterval(() => performSync(), intervalMs);
 
-        // Also sync when coming back online or focus
-        const handleSyncTrigger = () => {
-            if (document.visibilityState === 'visible' || navigator.onLine) {
+        // Also sync when coming back online or tab is focused
+        const handleSyncTrigger = (event: Event) => {
+            if (event.type === 'online' || document.visibilityState === 'visible') {
                 console.log('[AutoSync] Tab focused or back online, triggering sync check...');
                 performSync();
             }
         };
 
         window.addEventListener('online', handleSyncTrigger);
-        window.addEventListener('visibilitychange', handleSyncTrigger);
+        document.addEventListener('visibilitychange', handleSyncTrigger);
 
         return () => {
             if (timerRef.current) clearInterval(timerRef.current);
             window.removeEventListener('online', handleSyncTrigger);
-            window.removeEventListener('visibilitychange', handleSyncTrigger);
+            document.removeEventListener('visibilitychange', handleSyncTrigger);
         };
-    }, [intervalMs, syncData, downloadCloudData, user, syncStatus]);
+        // Intentionally only re-run when user or interval changes.
+        // performSync is memoized with useCallback so it's stable.
+    }, [user, intervalMs, performSync]);
 
-    return { performSync: () => performSync(true) }; // Allow manual trigger to bypass checks if valid
+    return { performSync: () => performSync(true) };
 };

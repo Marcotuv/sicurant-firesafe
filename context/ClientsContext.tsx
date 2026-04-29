@@ -72,11 +72,12 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const addClient = useCallback(async (client: Client) => {
     // 1. Mark as dirty locally
-    const clientWithFlag = { ...client, synced: false };
+    const timestamp = new Date().toISOString();
+    const clientWithFlag = { ...client, synced: false, updatedAt: timestamp };
     setClients(prev => [...prev, clientWithFlag]);
 
     if (supabase) {
-      // Mappa campi espliciti
+      // Fix: added updated_at to payload (was missing, breaking Delta Sync timestamp tracking)
       const payload = {
         id: client.id,
         nome: client.nome,
@@ -96,7 +97,8 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
         recapito_commessa: client.recapitoCommessa,
         pagamento: client.pagamento,
         note: client.note,
-        json_content: client
+        updated_at: timestamp,
+        json_content: { ...client, updatedAt: timestamp }
       };
       // 2. Try immediate upload
       await supabase.from('clients').upsert(payload)

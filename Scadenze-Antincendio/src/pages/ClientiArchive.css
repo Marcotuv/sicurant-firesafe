@@ -1,0 +1,212 @@
+/* ── Archivio Clienti ── */
+
+.archive-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.archive-search {
+  flex: 1 1 220px;
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: border-color var(--transition-fast);
+}
+
+.archive-search:focus {
+  border-color: var(--border-focus);
+  outline: none;
+}
+
+.archive-search::placeholder {
+  color: var(--text-secondary);
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.25rem;
+  background: var(--accent-blue);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast), box-shadow var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btn-primary:hover {
+  background: var(--accent-blue-hover);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.35);
+}
+
+/* ── Table ── */
+.clients-table-wrapper {
+  overflow-x: auto;
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Forza la visibilità della scrollbar orizzontale quando necessario */
+.clients-table-wrapper::-webkit-scrollbar {
+  height: 10px;
+}
+.clients-table-wrapper::-webkit-scrollbar-thumb {
+  background: var(--accent-blue);
+  border-radius: 10px;
+}
+.clients-table-wrapper::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+.clients-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.clients-table th,
+.clients-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+}
+
+/* Impediamo il wrap solo per colonne che devono restare compatte */
+.clients-table td:nth-child(1), /* Stato */
+.clients-table td:nth-child(8), /* Pezzi */
+.clients-table td:nth-child(9)  /* Azioni */ {
+  white-space: nowrap;
+}
+
+.clients-table thead th {
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 0;
+  background: var(--bg-card);
+}
+
+.clients-table tbody tr {
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background var(--transition-fast);
+}
+
+.clients-table tbody tr:hover {
+  background: var(--bg-secondary);
+}
+
+/* ── Semaforo Dot ── */
+.semaforo-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.semaforo-dot.rosso {
+  background: var(--status-red);
+  box-shadow: 0 0 6px var(--status-red-glow);
+}
+
+.semaforo-dot.giallo {
+  background: var(--status-yellow);
+  box-shadow: 0 0 6px var(--status-yellow-glow);
+}
+
+.semaforo-dot.verde {
+  background: var(--status-green);
+  box-shadow: 0 0 6px var(--status-green-glow);
+}
+
+.semaforo-dot.grigio {
+  background: var(--status-gray);
+}
+
+/* ── Actions ── */
+.action-btn {
+  padding: 0.35rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.action-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
+.action-btn.delete:hover {
+  color: var(--status-red);
+}
+
+/* ── Empty state ── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+}
+
+.empty-state-icon {
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+  font-size: 1.125rem;
+  margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  max-width: 320px;
+}
+
+/* ── Stats row ── */
+.archive-stats {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.archive-stat-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.archive-stat-chip.red {
+  background: var(--status-red-bg);
+  color: var(--status-red);
+}
+
+.archive-stat-chip.yellow {
+  background: var(--status-yellow-bg);
+  color: var(--status-yellow);
+}
+
+.archive-stat-chip.green {
+  background: var(--status-green-bg);
+  color: var(--status-green);
+}

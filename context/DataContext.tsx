@@ -125,8 +125,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const clearAllDataLocal = useCallback(async () => {
     console.log('[DataContext] Clearing all local data...');
+    // Fix: removed duplicate keys that were causing double IDB writes
     const keys = [
-      'work_sessions', 'interventions', 'assets', 'articles',
       'work_sessions', 'interventions', 'assets', 'articles',
       'services', 'anomalies', 'quotations',
       'user_notes', 'user_signature', 'supabase_config', 'remote_url'
@@ -140,8 +140,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setAssets(INITIAL_ASSETS);
     setArticles(INITIAL_ARTICLES);
     setServices(SERVICES_LIST);
-    setAnomalies(ANOMALIES_LIST);
-    setAnomalies(ANOMALIES_LIST);
+    setAnomalies(ANOMALIES_LIST); // Fix: was called twice redundantly
     setQuotations([]);
     setUserNotes([]);
     setUserSignature("");
@@ -355,7 +354,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const userRole = profile?.role || 'technician';
       const isAdminOrOffice = userRole === 'admin' || userRole === 'office';
 
-      setIsLoading(true);
+      // Fix: Do NOT set isLoading=true here — that causes full-UI flash on every auto-sync.
+      // isLoading is reserved for the initial IDB load only. syncStatus already tracks sync state.
 
       // --- DELTA SYNC LOGIC ---
       // Retrieve last successful pull timestamp
@@ -511,9 +511,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // 7. TECHNICIANS (Profiles)
       const { data: techData } = await supabase.from('profiles').select('*');
       if (techData) {
-        setTechnicians(techData.map((d: any, index: number) => ({
+        // Fix: derive color from a stable hash of the user ID, not from array index.
+        // Index-based colors shift for all techs whenever one is added/removed.
+        const TECH_PALETTE = ['#2563eb', '#16a34a', '#dc2626', '#9333ea', '#ea580c', '#0d9488', '#0891b2', '#db2777', '#4f46e5', '#65a30d', '#d97706', '#059669', '#c026d3'];
+        const hashColor = (id: string) => {
+          let hash = 0;
+          for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+          return TECH_PALETTE[hash % TECH_PALETTE.length];
+        };
+        setTechnicians(techData.map((d: any) => ({
           id: d.id, name: d.full_name || d.email.split('@')[0], email: d.email,
-          color: ['#2563eb', '#16a34a', '#dc2626', '#9333ea', '#ea580c', '#0d9488', '#0891b2', '#db2777', '#4f46e5', '#65a30d', '#d97706', '#059669', '#c026d3'][index % 13]
+          color: hashColor(String(d.id))
         })));
       }
 
@@ -559,7 +567,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const addAssetsBulk = useCallback(async (newAssets: Asset[]) => {
     const dirtyAssets = newAssets.map(a => ({ ...a, synced: false }));
-    setAssets(prev => [...prev, ...dirtyAssets]);
+
+    // Fix: use functional update and capture the merged result for IDB write,
+    // instead of reading the stale `assets` closure variable.
+    let mergedAssets: Asset[] = [];
+    setAssets(prev => {
+      mergedAssets = [...prev, ...dirtyAssets];
+      return mergedAssets;
+    });
+
     if (globalSupabase && newAssets.length > 0) {
       const payloads = newAssets.map(asset => ({
         id: asset.id,
@@ -583,11 +599,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     }
 
-    // Force immediate local save for bulk import
+    // Force immediate local save using the merged result (not stale closure)
     try {
-      await set('assets', [...assets, ...newAssets]);
-    } catch (e) { console.warn("Local save failed", e) }
-  }, [assets]);
+      // Small delay to allow React state to settle before reading mergedAssets
+      setTimeout(() => set('assets', mergedAssets).catch(e => console.warn('Local save failed', e)), 100);
+    } catch (e) { console.warn("Local save failed", e); }
+  }, []);
 
   const saveInterventionToSession = useCallback((sessionId: string, intervention: Intervention, metadata?: Partial<WorkSession>) => {
     setSessions(prev => prev.map(s => {
